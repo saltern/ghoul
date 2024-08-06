@@ -61,10 +61,16 @@ pub fn make_png(source_file: PathBuf, mut target_path: PathBuf, data: SpriteData
 }
 
 
-pub fn make_raw(source_file: PathBuf, mut target_path: PathBuf, data: SpriteData, overwrite: bool) {
-	// Set target filename
-	let file_stem: &str = source_file.file_stem().unwrap().to_str().unwrap();
-	target_path.push(format!("{}-W-{}-H-{}.raw", file_stem, data.width, data.height));
+pub fn make_raw(source_file: PathBuf, mut target_path: PathBuf, data: SpriteData, overwrite: bool, from_raw: bool) {
+	// Set target filename, do not append -W-X-H-Y if coming from raw
+	if from_raw {
+		target_path.push(source_file);
+	}
+	
+	else {
+		let file_stem: &str = source_file.file_stem().unwrap().to_str().unwrap();
+		target_path.push(format!("{}-W-{}-H-{}.raw", file_stem, data.width, data.height));
+	}
 	
 	// Overwrite check
 	if !overwrite {

@@ -81,10 +81,14 @@ fn process_file(parameters: Parameters) {
 	}
 	
 	let mut data: SpriteData = SpriteData::default();
+	let mut from_raw: bool = false;
 	
 	match parameters.source_format {
 		SpriteFormat::PNG => data = sprite_get::get_png(&parameters.source_path),
-		SpriteFormat::RAW => data = sprite_get::get_raw(&parameters.source_path),
+		SpriteFormat::RAW => {
+			data = sprite_get::get_raw(&parameters.source_path);
+			from_raw = true;
+		},
 		SpriteFormat::BIN => data = sprite_get::get_bin(&parameters.source_path),
 		_ => println!("main::process_file() error: Invalid source format provided"),
 	}
@@ -102,7 +106,7 @@ fn process_file(parameters: Parameters) {
 	
 	match parameters.target_format {
 		SpriteFormat::PNG => sprite_make::make_png(parameters.source_path, parameters.target_path, data, parameters.palette_file, parameters.overwrite),
-		SpriteFormat::RAW => sprite_make::make_raw(parameters.source_path, parameters.target_path, data, parameters.overwrite),
+		SpriteFormat::RAW => sprite_make::make_raw(parameters.source_path, parameters.target_path, data, parameters.overwrite, from_raw),
 		SpriteFormat::BIN => sprite_make::make_bin(parameters.source_path, parameters.target_path, data, parameters.uncompressed, parameters.overwrite),
 		_ => println!("main::process_file() error: Invalid target format provided"),
 	}
