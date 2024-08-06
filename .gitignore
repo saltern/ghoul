@@ -1,0 +1,9 @@
+/target
+/!backup
+/!notes
+/!old
+/!release
+/*.png
+/*.act
+/*.bin
+/*.raw

@@ -1,0 +1,8 @@
+[package]
+name = "sprite_ghoul"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+bitstream-io = "2.5.0"
+png = "0.17.13"
