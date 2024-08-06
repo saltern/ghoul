@@ -121,7 +121,16 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 	
 	// Set source format
 	let source_file_stem: &OsStr = source_pathbuf.file_stem().unwrap();
-	let source_extension: &str = source_pathbuf.extension().expect("Source file format wasn't specified.").to_str().unwrap();
+	let source_extension: &str;
+	
+	match source_pathbuf.extension() {
+		Some(os_str) => source_extension = os_str.to_str().unwrap(),
+		_ => {
+			println!("Source file format wasn't specified ('.png', '.raw', '.bin').");
+			return None;
+		}
+	}
+	
 	let source_format: SpriteFormat;
 	
 	match &source_extension.to_lowercase() as &str {
