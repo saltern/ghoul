@@ -8,6 +8,7 @@ pub struct Parameters {
 	pub palette_file: PathBuf,
 	pub source_format: SpriteFormat,
 	pub target_format: SpriteFormat,
+	pub palette_transfer: bool,
 	pub uncompressed: bool,
 	pub reindex: bool,
 	pub verbose: bool,
@@ -20,6 +21,7 @@ pub enum SpriteFormat {
 	PNG,
 	RAW,
 	BIN,
+	BMP,
 }
 
 #[derive(Debug)]
@@ -27,6 +29,7 @@ pub struct SpriteData {
 	pub width: u16,
 	pub height: u16,
 	pub pixels: Vec<u8>,
+	pub palette: Vec<u8>,
 }
 
 impl Default for SpriteData {
@@ -35,6 +38,7 @@ impl Default for SpriteData {
 			width: 0,
 			height: 0,
 			pixels: Vec::new(),
+			palette: Vec::new(),
 		}
 	}
 }
