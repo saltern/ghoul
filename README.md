@@ -14,40 +14,31 @@
 
 ## Available Parameters
  `-input <file>` or `-i <file>`
- 
  Specifies the input file or files. In order to process entire directories, use `*` as the filename.<br/>
  For example: `-input <path>/*.png`. The input format is still required (`*.png`, `*.raw`, `*.bin`, `*.bmp`).
 
- - `-format <format>` or `-f <format>`
- 
+ `-format <format>` or `-f <format>`
  Specifies the output format. RAW output appends PalMod naming automatically. PNG output is grayscale by default. BIN output is compressed by default.
 
- - `-output <path>` or `-o <path>`
- 
+ `-output <path>` or `-o <path>`
  Specifies the output path. Will be created if it doesn't exist. Defaults to the current working directory if not specified.
 
- - `-palette <file>` or `-p <file>`
- 
+ `-palette <file>` or `-p <file>`
  Specifies the input palette. Works only with PNGs and BMPs. Will accept any file, but will only produce expected results with ACT-format palettes.
 
- - `-palcopy` or `-c`
- 
+ `-palcopy` or `-c`
  Copies the source sprite's palette to the output sprite. Takes precedence over `-palette`.
 
- - `-reindex` or `-r`
- 
+ `-reindex` or `-r`
  Reindexes the output sprite from 1-2-3-4 to 1-3-2-4 and vice versa.
 
- - `-uncompressed` or `-u`
- 
+ `-uncompressed` or `-u`
  Outputs uncompressed sprites if the output format is BIN.
 
- - `-overwrite` or `-w`
- 
+ `-overwrite` or `-w`
  Enables overwriting pre-existing files. Can overwrite files in place.
 
- - `-list` or `-l`
- 
+ `-list` or `-l`
  Prints each file name to the console as it processes sprites.
 
 ## Usage Examples
