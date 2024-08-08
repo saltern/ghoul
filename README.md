@@ -13,9 +13,9 @@
  - Will not overwrite pre-existing files unless told to
 
 ## Available Parameters
- - `-input <file>` or `-i <file>`
+ `-input <file>` or `-i <file>`
  
- Specifies the input file or files. In order to process entire directories, use `*` as the filename.
+ Specifies the input file or files. In order to process entire directories, use `*` as the filename.<br/>
  For example: `-input <path>/*.png`. The input format is still required (`*.png`, `*.raw`, `*.bin`, `*.bmp`).
 
  - `-format <format>` or `-f <format>`
