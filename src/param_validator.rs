@@ -20,6 +20,7 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 	let mut source_palette: &str = "";
 	let mut target_format: SpriteFormat = SpriteFormat::NONE;
 	let mut target_path: PathBuf = PathBuf::from(".");
+	let mut palette_transfer: bool = false;
 	let mut uncompressed: bool = false;
 	let mut reindex: bool = false;
 	let mut verbose: bool = false;
@@ -41,8 +42,30 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 			ArgumentType::OUTPUT => {
 				let this_path: &String = &args[argument];
 				
-				if !PathBuf::from(this_path).try_exists().unwrap() {
-					fs::create_dir(&args[argument]).expect("main::validate_params() error: Could not create directory");
+				match PathBuf::from(this_path).try_exists() {
+					// Already exists, do nothing
+					Ok(true) => (),
+					
+					// Doesn't exist, create
+					Ok(false) => {
+						match fs::create_dir(&args[argument]) {
+							// Creation successful, do nothing
+							Ok(()) => (),
+							
+							// Creation failed
+							_ => {
+								println!("param_validator::validate() error: Could not create output directory, aborting");
+								return None;
+							},
+						}
+					},
+					
+					// Invalid path provided
+					_ => {
+						println!("param_validator::validate() error: Could not validate output directory, aborting");
+						println!("    -> Double-check your output path for any invalid characters.");
+						return None;
+					}
 				}
 				
 				target_path = PathBuf::from(format!("{}/", &args[argument]));
@@ -70,6 +93,12 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 						continue;
 					},
 					
+					"bmp" => {
+						target_format = SpriteFormat::BMP;
+						next_arg = ArgumentType::NONE;
+						continue;
+					},
+					
 					_ => {
 						println!("Unsupported output format '{}'. Supported formats: 'png', 'raw', 'bin'.", argument);
 						return None;
@@ -89,16 +118,16 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 		next_arg = ArgumentType::NONE;
 	
 		match &this_argument.to_lowercase() as &str {
-			"-i" => next_arg = ArgumentType::INPUT,
-			"-o" => next_arg = ArgumentType::OUTPUT,
-			"-f" => next_arg = ArgumentType::FORMAT,
-			"-p" => next_arg = ArgumentType::PALETTE,
-			"-r" => reindex = true,
-			"-l" => verbose = true,
-			"-u" => uncompressed = true,
-			"-w" => overwrite = true,
+			"-i" | "-input" => next_arg = ArgumentType::INPUT,
+			"-o" | "-output" => next_arg = ArgumentType::OUTPUT,
+			"-f" | "-format" => next_arg = ArgumentType::FORMAT,
+			"-p" | "-palette" => next_arg = ArgumentType::PALETTE,
+			"-c" | "-palcopy" => palette_transfer = true,
+			"-r" | "-reindex" => reindex = true,
+			"-l" | "-list" => verbose = true,
+			"-u" | "-uncompressed" => uncompressed = true,
+			"-w" | "-overwrite" => overwrite = true,
 			_ => (),
-			// _ => println!("Unexpected argument '{}'. Call '{}' by itself for help.", argument, args[0]),
 		}
 	}
 	
@@ -137,8 +166,9 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 		"png" => source_format = SpriteFormat::PNG,
 		"raw" => source_format = SpriteFormat::RAW,
 		"bin" => source_format = SpriteFormat::BIN,
+		"bmp" => source_format = SpriteFormat::BMP,
 		_ => {
-			println!("Unsupported source format '{}'. Supported formats: 'png', 'raw', 'bin'.", source_extension);
+			println!("Unsupported source format '{}'. Supported formats: 'png', 'raw', 'bin', 'bmp'.", source_extension);
 			return None;
 		},
 	}
@@ -168,7 +198,7 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 			},
 			
 			_ => {
-				println!("param_validator::validate() error: Errored while attempting to locate palette, ignoring.");
+				println!("param_validator::validate() error: Errored while attempting to locate palette, ignoring");
 				palette_pathbuf.clear();
 			}
 		}
@@ -193,7 +223,7 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 			},
 			
 			_ => {
-				println!("param_validator::validate() error: Errored while attempting to locate source path.");
+				println!("param_validator::validate() error: Errored while attempting to locate source path");
 				return None;
 			},
 		}
@@ -212,7 +242,7 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 			},
 			
 			_ => {
-				println!("param_validator::validate() error: Errored while attempting to locate source file.");
+				println!("param_validator::validate() error: Errored while attempting to locate source file");
 				return None;
 			},
 		}
@@ -226,6 +256,7 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 		palette_file: palette_pathbuf,
 		source_format: source_format,
 		target_format: target_format,
+		palette_transfer: palette_transfer,
 		uncompressed: uncompressed,
 		reindex: reindex,
 		verbose: verbose,
