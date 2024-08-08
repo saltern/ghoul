@@ -1,4 +1,5 @@
 use std::io::Cursor;
+use std::cmp::min;
 use bitstream_io::{BitReader, BitRead, BitWriter, BitWrite, BigEndian};
 
 use crate::shared_types::{
@@ -22,91 +23,73 @@ pub fn compress(data: SpriteData) -> CompressedData {
 	// Iterate vector
 	while current_pixel < data.pixels.len() {
 		// Token window origin point
-		let mut window_origin: usize = 0;
+		let window_origin: usize;
+		
 		if current_pixel > WINDOW_SIZE {
 			window_origin = current_pixel - WINDOW_SIZE;
+		} else {
+			window_origin = 0;
 		}
 		
-		// Used later
-		let mut token_write: bool = false;
-		
-		// Token window
-		if current_pixel >= 4 {
-			// Record keeping
-			let mut sequence_length: usize = 0;
+		if current_pixel >= 4 && data.pixels.len() - current_pixel > 2 {
 			let mut best_sequence_offset: usize = 0;
 			let mut best_sequence_length: usize = 0;
+			let mut token_size_max_local: usize = min(TOKEN_SIZE_MAX, current_pixel);
+			token_size_max_local = min(token_size_max_local, data.pixels.len() - current_pixel);
 			
-			// Window scan
-			for window_element in window_origin..current_pixel + 1 {
-				// Index of sequence's current pixel
-				let sequence_element: usize = current_pixel + sequence_length;
+			// New window scan, slower, better compression (matches game's)
+			for window_offset in 0..510 {
+				let mut sequence_length: usize = 0;
 				
-				// Conditions that should end a sequence
-				let mut end_sequence: bool = sequence_length >= TOKEN_SIZE_MAX; // Maximum sequence length reached
-				end_sequence = end_sequence || window_element >= current_pixel; // Last element of window reached
-				end_sequence = end_sequence || sequence_element >= data.pixels.len(); // End of sprite reached
-				
-				// Pixel match check
-				if !end_sequence {
-					if data.pixels[sequence_element] == data.pixels[window_element] {
+				while sequence_length < token_size_max_local {
+					let window_index: usize = window_origin + window_offset + sequence_length;
+					
+					if window_index >= current_pixel {
+						break;
+					}
+						
+					if data.pixels[current_pixel + sequence_length] == data.pixels[window_index] {
 						sequence_length += 1;
-					}
-					
-					else {
-						end_sequence = true;
+					} else {
+						break;
 					}
 				}
 				
-				if end_sequence {
-					// Register sequence if better
-					if sequence_length > best_sequence_length {
-						best_sequence_length = sequence_length;
-						best_sequence_offset = window_element - window_origin - sequence_length;
-					}
-					
-					// Reset sequence
-					sequence_length = 0;
+				if sequence_length > best_sequence_length {
+					best_sequence_length = sequence_length;
+					best_sequence_offset = window_offset;
+				}
+				
+				if sequence_length >= token_size_max_local {
+					break;
 				}
 			}
 			
-			// Write token if long enough
 			if best_sequence_length > 2 {
-				// Token indicator
 				let _ = bit_writer.write_bit(false);
-				
-				// Token offset
 				let _ = bit_writer.write(9, best_sequence_offset as u16);
-				
-				// Token length
 				let _ = bit_writer.write(7, (best_sequence_length as u8) - 3);
-				
-				// Increment position
 				current_pixel += best_sequence_length;
-				token_write = true;
+				iterations += 1;
+				continue;
 			}
 		}
 		
-		if !token_write {
-			// Literal indicator
-			let _ = bit_writer.write_bit(true);
-			
-			// Pixels
-			let _ = bit_writer.write(8, data.pixels[current_pixel]);
-			
-			if current_pixel + 1 < data.pixels.len() {
-				let _ = bit_writer.write(8, data.pixels[current_pixel + 1]);
-			}
-			
-			else {
-				let _ = bit_writer.write(8, 0u8);
-			}
-			
-			// Increment position
-			current_pixel += 2;
+		// Literal indicator
+		let _ = bit_writer.write_bit(true);
+		
+		// Pixels
+		let _ = bit_writer.write(8, data.pixels[current_pixel]);
+		
+		if current_pixel + 1 < data.pixels.len() {
+			let _ = bit_writer.write(8, data.pixels[current_pixel + 1]);
+		} else {
+			let _ = bit_writer.write(8, 0u8);
 		}
 		
-		iterations += 1
+		// Increment position
+		current_pixel += 2;		
+		iterations += 1;
 	}
 	
 	// Pad and close bit stream
@@ -189,5 +172,6 @@ pub fn decompress(bin_data: Vec<u8>) -> SpriteData {
 		width: dimensions.0,
 		height: dimensions.1,
 		pixels: pixel_vector,
+		palette: vec![],
 	};
 }
