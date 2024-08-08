@@ -42,11 +42,11 @@
  Prints each file name to the console as it processes sprites.
 
 ## Usage Examples
- - `ghoul -input *.png -format bin -output destination`
+ - `ghoul -input *.png -format bin -output destination`<br/>
  Processes every PNG file in the current directory, and outputs compressed BIN sprites to a directory called `destination`.
 
- - `ghoul -input source/*.bmp -reindex -output source -overwrite`
+ - `ghoul -input source/*.bmp -reindex -output source -overwrite`<br/>
  Overwrites every BMP file at the `source` directory with reindexed versions.
 
- - `ghoul -input sprite_0.bin -palette pal.act -f png`
+ - `ghoul -input sprite_0.bin -palette pal.act -f png`<br/>
  Creates an indexed PNG file called `sprite_0.png` with `pal.act` as its palette.
