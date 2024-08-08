@@ -5,4 +5,9 @@ edition = "2021"
 
 [dependencies]
 bitstream-io = "2.5.0"
+bmp-rust = "0.4.1"
 png = "0.17.13"
+
+[profile.release]
+strip = "symbols"
+panic = "abort"
