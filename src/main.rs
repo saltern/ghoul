@@ -70,7 +70,7 @@ pub fn help_message() {
 	println!("    -f or -format  <format>      Convert sprites (formats: 'png', 'raw', 'bin', 'bmp')");
 	println!("    -o or -output  <path>        Set output path, defaults to the current directory if not specified");
 	println!("    -p or -palette <pal file>    If output format is 'png' or 'bmp', color sprites using this .act palette");
-	println!("    -c or -palcopy               If converting from PNG to BMP or BMP to PNG, copy source palette to output");
+	println!("    -c or -palcopy               Copy source palette to output (PNG and BMP only)");
 	println!("    -r or -reindex               Reindex output sprites");
 	println!("    -u or -uncompressed          Output uncompressed sprites (BIN only)");
 	println!("    -w or -overwrite             Overwrite pre-existing files");

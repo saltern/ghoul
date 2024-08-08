@@ -190,7 +190,7 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 			Ok(true) => {
 				match target_format {
 					SpriteFormat::RAW | SpriteFormat::BIN => {
-						println!("A palette has been specified but output format is not PNG, ignoring.");
+						println!("A palette has been specified but output format is not PNG or BMP, ignoring.");
 						palette_pathbuf.clear();
 					}
 					_ => (),
