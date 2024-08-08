@@ -14,39 +14,39 @@
 
 ## Available Parameters
  - `-input <file>` or `-i <file>`
-	Specifies the input file or files. In order to process entire directories, use `*` as the filename.
-	For example: `-input <path>/*.png`. The input format is still required (`*.png`, `*.raw`, `*.bin`, `*.bmp`).
+ Specifies the input file or files. In order to process entire directories, use `*` as the filename.
+ For example: `-input <path>/*.png`. The input format is still required (`*.png`, `*.raw`, `*.bin`, `*.bmp`).
 
  - `-format <format>` or `-f <format>`
-	Specifies the output format. RAW output appends PalMod naming automatically. PNG output is grayscale by default. BIN output is compressed by default.
+ Specifies the output format. RAW output appends PalMod naming automatically. PNG output is grayscale by default. BIN output is compressed by default.
 
  - `-output <path>` or `-o <path>`
-	Specifies the output path. Will be created if it doesn't exist. Defaults to the current working directory if not specified.
+ Specifies the output path. Will be created if it doesn't exist. Defaults to the current working directory if not specified.
 
  - `-palette <file>` or `-p <file>`
-	Specifies the input palette. Works only with PNGs and BMPs. Will accept any file, but will only produce expected results with ACT-format palettes.
+ Specifies the input palette. Works only with PNGs and BMPs. Will accept any file, but will only produce expected results with ACT-format palettes.
 
  - `-palcopy` or `-c`
-	Copies the source sprite's palette to the output sprite. Takes precedence over `-palette`.
+ Copies the source sprite's palette to the output sprite. Takes precedence over `-palette`.
 
  - `-reindex` or `-r`
-	Reindexes the output sprite from 1-2-3-4 to 1-3-2-4 and vice versa.
+ Reindexes the output sprite from 1-2-3-4 to 1-3-2-4 and vice versa.
 
  - `-uncompressed` or `-u`
-	Outputs uncompressed sprites if the output format is BIN.
+ Outputs uncompressed sprites if the output format is BIN.
 
  - `-overwrite` or `-w`
-	Enables overwriting pre-existing files. Can overwrite files in place.
+ Enables overwriting pre-existing files. Can overwrite files in place.
 
  - `-list` or `-l`
-	Prints each file name to the console as it processes sprites.
+ Prints each file name to the console as it processes sprites.
 
 ## Usage Examples
  - `ghoul -input *.png -format bin -output destination`
-	Processes every PNG file in the current directory, and outputs compressed BIN sprites to a directory called `destination`.
+ Processes every PNG file in the current directory, and outputs compressed BIN sprites to a directory called `destination`.
 
  - `ghoul -input source/*.bmp -reindex -output source -overwrite`
-	Overwrites every BMP file at the `source` directory with reindexed versions.
+ Overwrites every BMP file at the `source` directory with reindexed versions.
 
  - `ghoul -input sprite_0.bin -palette pal.act -f png`
-	Creates an indexed PNG file called `sprite_0.png` with `pal.act` as its palette.
+ Creates an indexed PNG file called `sprite_0.png` with `pal.act` as its palette.
