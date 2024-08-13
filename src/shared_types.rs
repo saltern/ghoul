@@ -28,6 +28,7 @@ pub enum SpriteFormat {
 pub struct SpriteData {
 	pub width: u16,
 	pub height: u16,
+	pub bit_depth: u16,
 	pub pixels: Vec<u8>,
 	pub palette: Vec<u8>,
 }
@@ -37,6 +38,7 @@ impl Default for SpriteData {
 		SpriteData {
 			width: 0,
 			height: 0,
+			bit_depth: 8,
 			pixels: Vec::new(),
 			palette: Vec::new(),
 		}

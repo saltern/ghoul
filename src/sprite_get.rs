@@ -5,6 +5,8 @@ use bmp_rust::bmp::{BMP, BITMAPFILEHEADER, DIBHEADER};
 use crate::{
 	PathBuf,
 	SpriteData,
+	bin_header,
+	bin_header::BinHeader,
 	sprite_compress,
 };
 
@@ -80,6 +82,7 @@ pub fn get_png(source_file: &PathBuf) -> SpriteData {
 	return SpriteData {
 		width: reader.info().width as u16,
 		height: reader.info().height as u16,
+		bit_depth: 8,
 		pixels: pixel_vector,
 		palette: palette,
 	}
@@ -125,6 +128,7 @@ pub fn get_raw(source_file: &PathBuf) -> SpriteData {
 			return SpriteData {
 				width: width,
 				height: height,
+				bit_depth: 8,
 				pixels: data,
 				palette: vec![],
 			}
@@ -150,23 +154,31 @@ pub fn get_bin(source_file: &PathBuf) -> SpriteData {
 		},
 	}
 	
-	if bin_data[0] == 1 {
-		return sprite_compress::decompress(bin_data);
+	let header: BinHeader = bin_header::get_header(bin_data[0x0..0x10].to_vec());
+	
+	if header.compressed {
+		return sprite_compress::decompress(bin_data, header);
 	}
 	
 	else {
-		// Read dimensions from header
-		let dimensions: (u16, u16) = (
-			u16::from_le_bytes([bin_data[6], bin_data[7]]),
-			u16::from_le_bytes([bin_data[8], bin_data[9]]));
+		let pointer: usize;
 		
-		let mut pixels: Vec<u8> = vec![0; bin_data.len() - 16];
+		// Embedded palette-- do those even work for uncompressed sprites?
+		if header.clut == 0x20 {
+			pointer = bin_header::HEADER_SIZE + (2u8.pow(header.bit_depth as u32) * 4) as usize;
+		}
+		else {
+			pointer = bin_header::HEADER_SIZE;
+		}
+	
+		let mut pixels: Vec<u8> = vec![0; bin_data.len() - pointer];
 		
-		pixels.copy_from_slice(&bin_data[16..]);
+		pixels.copy_from_slice(&bin_data[pointer..]);
 	
 		return SpriteData {
-			width: dimensions.0,
-			height: dimensions.1,
+			width: header.width,
+			height: header.height,
+			bit_depth: header.bit_depth,
 			pixels: pixels,
 			palette: vec![],
 		}
@@ -286,6 +298,7 @@ pub fn get_bmp(source_file: &PathBuf) -> SpriteData {
 	return SpriteData {
 		width: dib_header.width as u16,
 		height: dib_header.height as u16,
+		bit_depth: 8,
 		pixels: pixel_vector,
 		palette: palette,
 	}

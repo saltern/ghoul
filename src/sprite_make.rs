@@ -165,6 +165,11 @@ pub fn make_png(parameters: Parameters, data: SpriteData) {
 		encoder.set_palette(data.palette);
 	}
 	
+	else if !data.palette.is_empty() {
+		encoder.set_color(png::ColorType::Indexed);
+		encoder.set_palette(data.palette);
+	}
+	
 	else if !parameters.palette_file.as_os_str().is_empty() {
 		match fs::read(parameters.palette_file) {
 			Ok(data) => {

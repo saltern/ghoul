@@ -7,6 +7,7 @@ use std::time::Instant;
 
 pub mod shared_types;
 pub mod param_validator;
+pub mod bin_header;
 pub mod sprite_get;
 pub mod sprite_make;
 pub mod sprite_compress;
@@ -69,7 +70,7 @@ pub fn help_message() {
 	println!("Available parameters:");
 	println!("    -f or -format  <format>      Convert sprites (formats: 'png', 'raw', 'bin', 'bmp')");
 	println!("    -o or -output  <path>        Set output path, defaults to the current directory if not specified");
-	println!("    -p or -palette <pal file>    If output format is 'png' or 'bmp', color sprites using this .act palette");
+	println!("    -p or -palette <pal file>    If output format is 'png', 'bmp', or 'bin', color sprites using this .act palette");
 	println!("    -c or -palcopy               Copy source palette to output (PNG and BMP only)");
 	println!("    -r or -reindex               Reindex output sprites");
 	println!("    -u or -uncompressed          Output uncompressed sprites (BIN only)");

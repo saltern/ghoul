@@ -2,16 +2,17 @@ use std::io::Cursor;
 use std::cmp::min;
 use bitstream_io::{BitReader, BitRead, BitWriter, BitWrite, BigEndian};
 
-use crate::shared_types::{
-	SpriteData,
-	CompressedData,
+use crate::{
+	shared_types::{SpriteData, CompressedData},
+	bin_header::BinHeader,
 };
 
 const WINDOW_SIZE: usize = 512;
 const TOKEN_SIZE_MAX: usize = 130;
 
 
-pub fn compress(data: SpriteData) -> CompressedData {
+// TODO: Implement sprite compression with 4 bpp
+pub fn compress(data: SpriteData, bit_depth: u16) -> CompressedData {
 	// Loop variables
 	let mut current_pixel: usize = 0;
 	let mut iterations: usize = 0;
@@ -109,21 +110,41 @@ pub fn compress(data: SpriteData) -> CompressedData {
 }
 
 
-pub fn decompress(bin_data: Vec<u8>) -> SpriteData {
-	let dimensions: (u16, u16) = (
-		u16::from_le_bytes([bin_data[6], bin_data[7]]),
-		u16::from_le_bytes([bin_data[8], bin_data[9]]));
+pub fn decompress(bin_data: Vec<u8>, header: BinHeader) -> SpriteData {
+	let pixel_count: usize = header.width as usize * header.height as usize;
+	let mut pointer: usize = 0x10;
+	let mut palette: Vec<u8> = Vec::new();
 	
-	let pixel_count: usize = (dimensions.0 as usize) * (dimensions.1 as usize);
+	// Get embedded palette
+	if header.clut == 0x20 {
+		let color_count: usize = 2u8.pow(header.bit_depth as u32) as usize;
+		
+		// Get palette
+		for index in 0..color_count {
+			palette.push(bin_data[pointer + 4 * index + 0]);
+			palette.push(bin_data[pointer + 4 * index + 1]);
+			palette.push(bin_data[pointer + 4 * index + 2]);
+			// Alpha channel is not supported in any format other than BIN
+			// palette.push(bin_data[pointer + 4 * index + 3]);
+		}
+		
+		pointer += color_count * 4;
+		palette.resize(256 * 3, 0);
+	}
 	
+	// Read iterations
 	let iterations: u32 = u32::from_le_bytes([
-		bin_data[18], bin_data[19], bin_data[16], bin_data[17]]);
+		bin_data[pointer + 0x02],
+		bin_data[pointer + 0x03],
+		bin_data[pointer + 0x00],
+		bin_data[pointer + 0x01]
+	]);
 	
-	// Initialize byte data...
-	let mut byte_data: Vec<u8> = Vec::new();
-	let mut pointer: usize = 20;	// Skip header and iterations
+	// Move pointer past iterations
+	pointer += 0x04;
 	
 	// Get byte data
+	let mut byte_data: Vec<u8> = Vec::with_capacity(bin_data.len() - pointer);
 	while pointer < bin_data.len() {
 		byte_data.push(bin_data[pointer + 1]);
 		byte_data.push(bin_data[pointer]);
@@ -136,42 +157,63 @@ pub fn decompress(bin_data: Vec<u8>) -> SpriteData {
 	// Pixel vector
 	let mut pixel_vector: Vec<u8> = Vec::new();
 	let mut current_pixel: usize = 0;
-	
-	for _i in 0..iterations {
+
+	for _i in 0..iterations {		
 		// Literal mode
 		if bit_reader.read_bit().unwrap() == true {
-			pixel_vector.push(bit_reader.read(8).unwrap());
-			
-			// Guard against stray pixels
-			if current_pixel + 1 < pixel_count {
-				pixel_vector.push(bit_reader.read(8).unwrap());
+			// Hopefully globally applicable
+			for _pixel in 0..(16 / header.bit_depth) {
+				if current_pixel < pixel_count {
+					pixel_vector.push(bit_reader.read(header.bit_depth as u32).unwrap());
+					current_pixel += 1;
+				}
 			}
-			
-			current_pixel += 2;
 		}
 		
 		// Token mode
-		else {			
+		else {
+			// 8 = byte
+			let factor: usize = (8 / header.bit_depth) as usize;
+			
 			let mut window_origin: usize = 0;
-			if current_pixel > 512 {
-				window_origin = current_pixel - 512;
+			if current_pixel > window_size {
+				window_origin = current_pixel - window_size;
 			}
 			
-			let offset: usize = bit_reader.read::<u16>(9).unwrap() as usize;
-			let length: usize = bit_reader.read::<u8>(7).unwrap() as usize;
+			let window_size: usize = WINDOW_SIZE * factor;
 			
-			for pixel in 0..length + 3 {
+			let offset: usize = (bit_reader.read::<u16>(9).unwrap() as usize) * factor;
+			let length: usize = (3 + bit_reader.read::<u8>(7).unwrap() as usize) * factor;
+			
+			for pixel in 0..length {
 				pixel_vector.push(pixel_vector[window_origin + offset + pixel]);
 			}
 			
-			current_pixel += length + 3;
+			current_pixel += length;
 		}
 	}
 	
+	// ...is this a little endian nibble read?
+	if header.bit_depth == 4 {
+		let mut temp_vector: Vec<u8> = Vec::new();
+		
+		for pixel in 0..pixel_vector.len() {
+			if pixel % 2 == 0 {
+				temp_vector.push(pixel_vector[pixel + 1]);
+			}
+			else {
+				temp_vector.push(pixel_vector[pixel - 1]);
+			}
+		}
+		
+		pixel_vector = temp_vector.clone();
+	}
+	
 	return SpriteData {
-		width: dimensions.0,
-		height: dimensions.1,
+		width: header.width,
+		height: header.height,
+		bit_depth: header.bit_depth,
 		pixels: pixel_vector,
-		palette: vec![],
+		palette: palette,
 	};
 }
