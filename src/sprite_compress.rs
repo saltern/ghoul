@@ -5,14 +5,19 @@ use bitstream_io::{BitReader, BitRead, BitWriter, BitWrite, BigEndian};
 use crate::{
 	shared_types::{SpriteData, CompressedData},
 	bin_header::BinHeader,
+	bit_depth,
 };
 
 const WINDOW_SIZE: usize = 512;
 const TOKEN_SIZE_MAX: usize = 130;
 
 
-// TODO: Implement sprite compression with 4 bpp
-pub fn compress(data: SpriteData, bit_depth: u16) -> CompressedData {
+pub fn compress(mut data: SpriteData) -> CompressedData {
+	// Adapt 4 bpp pixel vector to 8 bpp
+	if data.bit_depth == 4 {
+		data.pixels = bit_depth::bpp_4to8(data.pixels, true);
+	}
+
 	// Loop variables
 	let mut current_pixel: usize = 0;
 	let mut iterations: usize = 0;
@@ -117,19 +122,18 @@ pub fn decompress(bin_data: Vec<u8>, header: BinHeader) -> SpriteData {
 	
 	// Get embedded palette
 	if header.clut == 0x20 {
-		let color_count: usize = 2u8.pow(header.bit_depth as u32) as usize;
+		let color_count: usize = 2u16.pow(header.bit_depth as u32) as usize;
 		
 		// Get palette
 		for index in 0..color_count {
+			// RGBA
 			palette.push(bin_data[pointer + 4 * index + 0]);
 			palette.push(bin_data[pointer + 4 * index + 1]);
 			palette.push(bin_data[pointer + 4 * index + 2]);
-			// Alpha channel is not supported in any format other than BIN
-			// palette.push(bin_data[pointer + 4 * index + 3]);
+			palette.push(bin_data[pointer + 4 * index + 3]);
 		}
 		
 		pointer += color_count * 4;
-		palette.resize(256 * 3, 0);
 	}
 	
 	// Read iterations
@@ -156,58 +160,39 @@ pub fn decompress(bin_data: Vec<u8>, header: BinHeader) -> SpriteData {
 	
 	// Pixel vector
 	let mut pixel_vector: Vec<u8> = Vec::new();
-	let mut current_pixel: usize = 0;
-
-	for _i in 0..iterations {		
+	
+	for _i in 0..iterations {
 		// Literal mode
 		if bit_reader.read_bit().unwrap() == true {
-			// Hopefully globally applicable
-			for _pixel in 0..(16 / header.bit_depth) {
-				if current_pixel < pixel_count {
-					pixel_vector.push(bit_reader.read(header.bit_depth as u32).unwrap());
-					current_pixel += 1;
-				}
+			pixel_vector.push(bit_reader.read(8).unwrap());
+			
+			// Stray byte guard rail
+			if pixel_vector.len() + 1 < pixel_count {
+				pixel_vector.push(bit_reader.read(8).unwrap());
 			}
 		}
 		
 		// Token mode
-		else {
-			// 8 = byte
-			let factor: usize = (8 / header.bit_depth) as usize;
-			
+		else {			
 			let mut window_origin: usize = 0;
-			if current_pixel > window_size {
-				window_origin = current_pixel - window_size;
+			if pixel_vector.len() > 512 {
+				window_origin = pixel_vector.len() - 512;
 			}
 			
-			let window_size: usize = WINDOW_SIZE * factor;
-			
-			let offset: usize = (bit_reader.read::<u16>(9).unwrap() as usize) * factor;
-			let length: usize = (3 + bit_reader.read::<u8>(7).unwrap() as usize) * factor;
+			let offset: usize = bit_reader.read::<u16>(9).unwrap() as usize;
+			let length: usize = 3 + bit_reader.read::<u8>(7).unwrap() as usize;
 			
 			for pixel in 0..length {
 				pixel_vector.push(pixel_vector[window_origin + offset + pixel]);
 			}
-			
-			current_pixel += length;
 		}
 	}
 	
-	// ...is this a little endian nibble read?
 	if header.bit_depth == 4 {
-		let mut temp_vector: Vec<u8> = Vec::new();
-		
-		for pixel in 0..pixel_vector.len() {
-			if pixel % 2 == 0 {
-				temp_vector.push(pixel_vector[pixel + 1]);
-			}
-			else {
-				temp_vector.push(pixel_vector[pixel - 1]);
-			}
-		}
-		
-		pixel_vector = temp_vector.clone();
+		pixel_vector = bit_depth::bpp_8to4(pixel_vector, true);
 	}
+	
+	pixel_vector.resize(header.width as usize * header.height as usize, 0u8);
 	
 	return SpriteData {
 		width: header.width,

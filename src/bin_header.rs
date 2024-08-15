@@ -45,3 +45,35 @@ pub fn get_header(data: Vec<u8>) -> BinHeader {
 		]),
 	}
 }
+
+
+pub fn get_bytes(header: BinHeader) -> Vec<u8> {
+	let mut return_vector: Vec<u8> = Vec::with_capacity(0x10);
+	
+	// mode (compressed/uncompressed)
+	return_vector.push(header.compressed as u8);
+	return_vector.push(0x00);
+	
+	// clut (embedded palette)
+	return_vector.extend_from_slice(&header.clut.to_le_bytes());
+	
+	// pix (bit depth)
+	return_vector.extend_from_slice(&header.bit_depth.to_le_bytes());
+	
+	// width
+	return_vector.extend_from_slice(&header.width.to_le_bytes());
+	
+	// height
+	return_vector.extend_from_slice(&header.height.to_le_bytes());
+	
+	// tw (unknown)
+	return_vector.extend_from_slice(&header.tw.to_le_bytes());
+	
+	// th (unknown)
+	return_vector.extend_from_slice(&header.th.to_le_bytes());
+	
+	// hash (generation method unknown, doesn't affect result)
+	return_vector.extend_from_slice(&header.hash.to_le_bytes());
+	
+	return return_vector;
+}

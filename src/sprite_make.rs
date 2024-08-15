@@ -1,5 +1,4 @@
 use std::io::{Write, BufWriter};
-use std::fs;
 use std::fs::File;
 
 use crate::{
@@ -8,6 +7,8 @@ use crate::{
 	SpriteData,
 	SpriteFormat,
 	shared_types::CompressedData,
+	bin_header,
+	bit_depth,
 	sprite_compress,
 };
 
@@ -34,47 +35,7 @@ fn overwrite_blocked(target_path: &PathBuf, overwrite: bool) -> bool {
 }	
 
 
-fn bin_header(width: u16, height: u16, uncompressed: bool) -> Vec<u8> {
-	let mut header_vector: Vec<u8> = Vec::new();
-
-	// mode
-	if uncompressed {
-		header_vector.push(0u8);
-		header_vector.push(0u8);
-	}
-	
-	else {
-		header_vector.push(1u8);
-		header_vector.push(0u8);
-	}
-	
-	// clut, pix
-	header_vector.push(0u8);
-	header_vector.push(0u8);
-	header_vector.push(8u8);
-	header_vector.push(0u8);
-	
-	// width
-	header_vector.push(width as u8);
-	header_vector.push((width >> 8) as u8);
-	
-	// height
-	header_vector.push(height as u8);
-	header_vector.push((height >> 8) as u8);
-	
-	// tw, th, hash
-	header_vector.push(0u8);
-	header_vector.push(8u8);
-	header_vector.push(0u8);
-	header_vector.push(8u8);
-	header_vector.push(0u8);
-	header_vector.push(0u8);
-	
-	return header_vector;
-}
-
-
-fn bmp_header(width: u16, height: u16) -> Vec<u8> {
+fn bmp_header(width: u16, height: u16, bit_depth: u16) -> Vec<u8> {
 	let mut bmp_data: Vec<u8> = Vec::new();
 	
 	// BITMAPFILEHEADER
@@ -83,11 +44,10 @@ fn bmp_header(width: u16, height: u16) -> Vec<u8> {
 	bmp_data.push(0x4d);
 	
 	// 4 bytes, size of the bitmap in bytes
-	// 794 is:
 	// 14 bytes - BITMAPFILEHEADER
 	// 12 bytes - DIBHEADER of type BITMAPCOREHEADER
-	// 768 bytes - Color Table of 256 colors of 3 bytes each
-	let bmp_file_size: [u8; 4] = (794 + (width + width % 4) as u32 * height as u32).to_le_bytes();
+	let header_length: u32 = 14 + 12 + 2u32.pow(bit_depth as u32) * 3;
+	let bmp_file_size: [u8; 4] = (header_length + (width + width % 4) as u32 * height as u32).to_le_bytes();
 	for byte in 0..4 {
 		bmp_data.push(bmp_file_size[byte]);
 	}
@@ -99,8 +59,8 @@ fn bmp_header(width: u16, height: u16) -> Vec<u8> {
 	bmp_data.push(0x00);
 	
 	// 4 bytes, offset to pixel array
-	bmp_data.push(0x1A);
-	bmp_data.push(0x03);
+	bmp_data.push((header_length & 0xFF) as u8);
+	bmp_data.push((header_length >> 8) as u8);
 	bmp_data.push(0x00);
 	bmp_data.push(0x00);
 	
@@ -124,7 +84,12 @@ fn bmp_header(width: u16, height: u16) -> Vec<u8> {
 	bmp_data.push(0x00);
 	
 	// 2 bytes, bpp
-	bmp_data.push(0x08);
+	if bit_depth == 4 {
+		bmp_data.push(0x04);
+	}
+	else {
+		bmp_data.push(0x08);
+	}
 	bmp_data.push(0x00);
 	
 	return bmp_data;
@@ -159,40 +124,22 @@ pub fn make_png(parameters: Parameters, data: SpriteData) {
 	encoder.set_depth(png::BitDepth::Eight);
 	encoder.set_color(png::ColorType::Grayscale);
 	
-	// Palette transfer
-	if parameters.palette_transfer && data.palette.len() == 768 {
-		encoder.set_color(png::ColorType::Indexed);
-		encoder.set_palette(data.palette);
-	}
-	
-	else if !data.palette.is_empty() {
-		encoder.set_color(png::ColorType::Indexed);
-		encoder.set_palette(data.palette);
-	}
-	
-	else if !parameters.palette_file.as_os_str().is_empty() {
-		match fs::read(parameters.palette_file) {
-			Ok(data) => {
-				encoder.set_color(png::ColorType::Indexed);
-			
-				// Load palette
-				let mut act_data: Vec<u8> = data;
-				
-				// Fill in with black if it doesn't contain enough colors
-				act_data.resize(768, 0u8);
-				
-				encoder.set_palette(act_data);
-			},
-				
-			_ => {
-				println!("sprite_make::make_png() error: Could not read source palette file, ignoring");
-			},
+	// Palette
+	if !data.palette.is_empty() {
+		let mut rgb_palette: Vec<u8> = Vec::with_capacity(768);
+		
+		// Strip alpha
+		for color in 0..2usize.pow(data.bit_depth as u32) {
+			rgb_palette.push(data.palette[4 * color + 0]);
+			rgb_palette.push(data.palette[4 * color + 1]);
+			rgb_palette.push(data.palette[4 * color + 2]);
 		}
+	
+		encoder.set_color(png::ColorType::Indexed);
+		encoder.set_palette(rgb_palette);
 	}
 	
 	let mut writer = encoder.write_header().expect("sprite_make::make_png() error: Could not write PNG header");
-	let mut write_data: Vec<u8> = data.pixels.clone();
-	write_data.resize((data.width as u32 * data.height as u32) as usize, 0u8);
 	writer.write_image_data(&data.pixels).unwrap();
 }
 
@@ -235,7 +182,7 @@ pub fn make_raw(parameters: Parameters, data: SpriteData) {
 }
 
 
-pub fn make_bin(parameters: Parameters, data: SpriteData) {
+pub fn make_bin(parameters: Parameters, mut data: SpriteData) {
 	// Set target filename
 	let mut target_path = parameters.target_path;
 	target_path.push(parameters.source_path.file_stem().unwrap());
@@ -259,15 +206,38 @@ pub fn make_bin(parameters: Parameters, data: SpriteData) {
 	
 	let ref mut buffer = BufWriter::new(bin_file);
 	
-	// Header
-	let header_vector: Vec<u8> = bin_header(data.width, data.height, parameters.uncompressed);
-	
-	for item in 0..header_vector.len() {
-		let _ = buffer.write(&[header_vector[item]]);
+	let clut: u16;
+	if data.palette.is_empty() {
+		clut = 0x0000;
+		// data.bit_depth = 8;
 	}
+	else {
+		clut = 0x0020;
+	}
+	
+	// Header
+	// Ugly as sin, I should change this later
+	let header_vector: Vec<u8> = bin_header::get_bytes(bin_header::BinHeader {
+		compressed: !parameters.uncompressed,
+		clut: clut,
+		bit_depth: data.bit_depth,
+		width: data.width,
+		height: data.height,
+		tw: 0x0,
+		th: 0x0,
+		hash: 0x0,
+	});
+	
+	let _ = buffer.write_all(&header_vector);
+	
+	// clut
+	let _ = buffer.write_all(&data.palette);
 	
 	// Uncompressed mode
 	if parameters.uncompressed {
+		if data.bit_depth == 4 {
+			data.pixels = bit_depth::bpp_4to8(data.pixels, true);
+		}
 		let _ = buffer.write_all(&data.pixels);
 	}
 	
@@ -315,49 +285,27 @@ pub fn make_bmp(parameters: Parameters, data: SpriteData) {
 	}
 
 	// BITMAPFILEHEADER, BITMAPCOREHEADER
-	let header: Vec<u8> = bmp_header(data.width, data.height);
+	let header: Vec<u8> = bmp_header(data.width, data.height, data.bit_depth);
 	
 	// Color table
 	let mut color_table: Vec<u8> = Vec::with_capacity(768);
-	
-	// Palette transfer
-	if parameters.palette_transfer && data.palette.len() == 768 {
-		for color in 0..256 {
-			color_table.push(data.palette[3 * color + 2]);
-			color_table.push(data.palette[3 * color + 1]);
-			color_table.push(data.palette[3 * color + 0]);
-		}
-	}
+	let color_count: usize = 2usize.pow(data.bit_depth as u32);
 	
 	// Grayscale
-	else if parameters.palette_file.as_os_str().is_empty() {
-		for color in 0..256 {
+	if data.palette.is_empty() {
+		for color in 0..color_count {
 			color_table.push(color as u8);
 			color_table.push(color as u8);
 			color_table.push(color as u8);
 		}
 	}
 	
+	// Palette (no alpha)
 	else {
-		// Load palette
-		match fs::read(parameters.palette_file) {
-			Ok(data) => {
-				let mut act_data: Vec<u8> = data;
-		
-				// Fill in with black if palette doesn't contain enough colors
-				act_data.resize(768, 0u8);
-	
-				// BGR
-				for color in 0..256 {
-					color_table.push(act_data[3 * color + 2]);
-					color_table.push(act_data[3 * color + 1]);
-					color_table.push(act_data[3 * color + 0]);
-				}
-			},
-				
-			_ => {
-				println!("sprite_make::make_bmp() error: Could not read source palette file, ignoring");
-			},
+		for color in 0..color_count {
+			color_table.push(data.palette[4 * color + 2]);
+			color_table.push(data.palette[4 * color + 1]);
+			color_table.push(data.palette[4 * color + 0]);
 		}
 	}
 	
@@ -377,16 +325,26 @@ pub fn make_bmp(parameters: Parameters, data: SpriteData) {
 	let _ = buffer.write_all(&header);
 	let _ = buffer.write_all(&color_table);
 	
-	let mut padding: usize = (data.width % 4) as usize;
-	if padding > 0 {
-		padding = 4 - padding;
+	let working_pixels: Vec<u8>;
+	let width: usize;
+	
+	// 4 bpp handling
+	if data.bit_depth == 4 {
+		working_pixels = bit_depth::bpp_4to8(data.pixels, false);
+		width = ((data.width / 2) + (data.width % 2)) as usize; // I pray to Beelzebub that this works
+	}
+	else {
+		working_pixels = data.pixels;
+		width = data.width as usize;
 	}
 	
-	let width: usize = data.width as usize;
+	// Cheers Wikipedia
+	let padding: usize = (((data.bit_depth * data.width + 31) / 32) * 4) as usize - width;
+	
 	// Upside-down write with padding
 	for y in (0..data.height as usize).rev() {
-		let row_start: usize = y * width;		
-		let _ = buffer.write_all(&data.pixels[row_start..row_start + width]);
+		let row_start: usize = y * width;
+		let _ = buffer.write_all(&working_pixels[row_start..row_start + width]);
 		let _ = buffer.write_all(&vec![0u8; padding]);
 	}
 	

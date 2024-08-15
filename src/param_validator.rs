@@ -21,6 +21,8 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 	let mut target_format: SpriteFormat = SpriteFormat::NONE;
 	let mut target_path: PathBuf = PathBuf::from(".");
 	let mut palette_transfer: bool = false;
+	let mut forced_bit_depth: bool = false;
+	let mut bit_depth: usize = 8;
 	let mut uncompressed: bool = false;
 	let mut reindex: bool = false;
 	let mut verbose: bool = false;
@@ -127,6 +129,14 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 			"-l" | "-list" => verbose = true,
 			"-u" | "-uncompressed" => uncompressed = true,
 			"-w" | "-overwrite" => overwrite = true,
+			"-4" | "-force-4bpp" => {
+				forced_bit_depth = true;
+				bit_depth = 4;
+			},
+			"-8" | "-force-8bpp" => {
+				forced_bit_depth = true;
+				bit_depth = 8;
+			},
 			_ => (),
 		}
 	}
@@ -189,8 +199,8 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 			
 			Ok(true) => {
 				match target_format {
-					SpriteFormat::RAW | SpriteFormat::BIN => {
-						println!("A palette has been specified but output format is not PNG or BMP, ignoring.");
+					SpriteFormat::RAW => {
+						println!("A palette has been specified but output format is RAW, ignoring.");
 						palette_pathbuf.clear();
 					}
 					_ => (),
@@ -257,6 +267,8 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 		source_format: source_format,
 		target_format: target_format,
 		palette_transfer: palette_transfer,
+		forced_bit_depth: forced_bit_depth,
+		bit_depth: bit_depth,
 		uncompressed: uncompressed,
 		reindex: reindex,
 		verbose: verbose,

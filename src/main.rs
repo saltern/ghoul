@@ -1,5 +1,6 @@
 use std::env;
 use std::thread;
+use std::fs;
 use std::fs::ReadDir;
 use std::ffi::OsStr;
 use std::path::PathBuf;
@@ -8,6 +9,7 @@ use std::time::Instant;
 pub mod shared_types;
 pub mod param_validator;
 pub mod bin_header;
+pub mod bit_depth;
 pub mod sprite_get;
 pub mod sprite_make;
 pub mod sprite_compress;
@@ -63,15 +65,17 @@ pub fn help_message() {
 	println!("Can convert and reindex PNG-, RAW-, BIN-, and BMP-format sprites.");
 	println!();
 	println!("Usage:");
-	println!("    ghoul -i <input file> [-f format] [-o output] [-p/-c] [-r] [-u] [-w] [-l]");
+	println!("    ghoul -i <input file> [-f format] [-o output] [-p/-c] [-4/-8] [-r] [-u] [-w] [-l]");
 	println!();
 	println!("To process full directories, use an asterisk as the input file name (e.g. 'path/*.png').");
 	println!();
 	println!("Available parameters:");
 	println!("    -f or -format  <format>      Convert sprites (formats: 'png', 'raw', 'bin', 'bmp')");
 	println!("    -o or -output  <path>        Set output path, defaults to the current directory if not specified");
-	println!("    -p or -palette <pal file>    If output format is 'png', 'bmp', or 'bin', color sprites using this .act palette");
-	println!("    -c or -palcopy               Copy source palette to output (PNG and BMP only)");
+	println!("    -p or -palette <pal file>    Color output sprite using this .act palette (except RAWs)");
+	println!("    -c or -palcopy               Copy source sprite's palette to output sprite (except RAWs, overrides -p)");
+	println!("    -4 or -force-4bpp            Force output to 4-bit color depth (compressed BIN only)");
+	println!("    -8 or -force-8bpp            Force output to 8-bit color depth (compressed BIN only)");
 	println!("    -r or -reindex               Reindex output sprites");
 	println!("    -u or -uncompressed          Output uncompressed sprites (BIN only)");
 	println!("    -w or -overwrite             Overwrite pre-existing files");
@@ -109,6 +113,110 @@ fn process_file(parameters: Parameters) {
 			data.pixels[index] = sprite_transform::transform_index(data.pixels[index]);
 		}
 	}
+	
+	// Palette handling overrides what's currently in data
+	let mut temp_palette: Vec<u8> = Vec::new();
+	let alpha_processing: bool;
+	
+	// I should handle the following palette sizes...
+	//   48 bytes: 16-color palette, RGB
+	//   64 bytes: 16-color palette, RGBA
+	//  768 bytes: 256-color palette, RGB
+	// 1024 bytes: 256-color palette, RGBA
+	
+	// -force-4bpp / -force-8bpp
+	if parameters.forced_bit_depth {
+		data.bit_depth = parameters.bit_depth as u16;
+	}
+	// Bit depth from palette size
+	else {
+		match data.palette.len() {
+			48 | 64 => data.bit_depth = 4,
+			_ => data.bit_depth = 8,
+		}
+	}
+	
+	let color_count: usize = 2usize.pow(data.bit_depth as u32);
+	
+	// Prioritize -palcopy
+	if parameters.palette_transfer {
+		match data.palette.len() {
+			// RGB palette
+			48 | 768 => {
+				alpha_processing = true;
+				
+				for index in 0..data.palette.len() {
+					// Alpha, modified later
+					if index % 3 == 0 && index != 0 {
+						temp_palette.push(0x80);
+					}
+					// Actual color
+					temp_palette.push(data.palette[index]);
+				}
+				temp_palette.push(0x80);
+			},
+			
+			// RGBA palette
+			64 | 1024 => {
+				alpha_processing = false;
+				temp_palette = data.palette;
+			},
+			
+			_ => {
+				alpha_processing = false;
+				println!("Warning: Will not -palcopy as source palette is empty or has an invalid size ({})", data.palette.len());
+				println!("\tFile: {}", parameters.source_path.display());
+			}
+		}
+	}
+	
+	// Else move on to -palette
+	else if !parameters.palette_file.as_os_str().is_empty() {
+		match fs::read(&parameters.palette_file) {
+			Ok(data) => {
+				// Currently treating all input palettes as RGB, this might change	
+				alpha_processing = true;
+							
+				for index in 0..data.len() {
+					// Alpha, modified later
+					if index % 3 == 0 && index != 0 {
+						temp_palette.push(0x80);
+					}
+					// Actual color
+					temp_palette.push(data[index]);
+				}
+			},
+			
+			_ => {
+				alpha_processing = false;
+				println!("main::process_file() error: Could not read source palette file, ignoring");
+			},
+		}
+	}
+	
+	// No palette
+	else {
+		alpha_processing = false;
+	}
+	
+	// Process palette alpha
+	// Applies default values in case no alpha data was present in source palette
+	if alpha_processing {
+		// Expand or truncate to 16 or 256 colors with alpha
+		temp_palette.resize(color_count * 4, 0u8);
+		
+		for index in 0..color_count {
+			if index % 32 == 0 || (index as i32 - 8) % 32 == 0 && index != 8 {
+				temp_palette[4 * index + 3] = 0x00;
+			}
+			else {
+				temp_palette[4 * index + 3] = 0x80;
+			}
+		}
+	}
+	
+	// Pass result to data.
+	data.palette = temp_palette;
 	
 	match parameters.target_format {
 		SpriteFormat::PNG => sprite_make::make_png(parameters, data),
@@ -172,4 +280,5 @@ fn process_directory(parameters: Parameters) {
 	let item_count_t2: usize = handle.join().unwrap();
 	
 	print!("Processed {} sprites", item_count + item_count_t2);
+	// print!("Processed {} sprites", item_count);
 }

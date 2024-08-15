@@ -9,6 +9,8 @@ pub struct Parameters {
 	pub source_format: SpriteFormat,
 	pub target_format: SpriteFormat,
 	pub palette_transfer: bool,
+	pub forced_bit_depth: bool,
+	pub bit_depth: usize,
 	pub uncompressed: bool,
 	pub reindex: bool,
 	pub verbose: bool,

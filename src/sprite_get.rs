@@ -217,26 +217,46 @@ pub fn get_bmp(source_file: &PathBuf) -> SpriteData {
 		},
 	}
 	
-	// BPP check
-	if dib_header.bitcount > 8 {
-		println!("Warning: Skipping BMP as its color depth exceeds 8 bits per pixel");
-		println!("\tSkipped: {}", &source_file.display());
-		return SpriteData::default();
-	}
-	
 	// Manual pixel read from bytes, accounts for padding
 	let mut padding: usize = (dib_header.width % 4) as usize;
 	if padding > 0 {
 		padding = 4 - padding;
 	}
 
+	// Row width with padding
+	let width_padded: usize = (dib_header.width + padding as u32) as usize; // wrong...?
+	
+	// 4/8 bpp
+	let mut pre_vector: Vec<u8> = Vec::new();
+	match dib_header.bitcount {
+		4 => {
+			let start: usize = file_header.bfOffBits as usize;
+			let pixel_count: usize = width_padded * dib_header.height.abs() as usize;
+			let mut index: usize = 0;
+			
+			while pre_vector.len() < pixel_count {
+				pre_vector.push(bmp.contents[start + index] >> 4);
+				pre_vector.push(bmp.contents[start + index] & 0xF);
+				index += 1;
+			}
+		},
+		
+		8 => pre_vector = bmp.contents[file_header.bfOffBits as usize..].to_vec(),
+		
+		_ => {
+			println!("Warning: Skipping BMP as its color depth is not supported ({})", dib_header.bitcount);
+			println!("\tSkipped: {}", &source_file.display());
+			return SpriteData::default();
+		},
+	}
+	
+	// Data that will actually be operated on
 	let mut pixel_vector: Vec<u8> = Vec::new();
-	let width_bytes: usize = (dib_header.width + padding as u32) as usize;
 	
 	for row in (0..dib_header.height as usize).rev() {
 		for pixel in 0..dib_header.width as usize {
-			let row_start: usize = width_bytes * row;
-			pixel_vector.push(bmp.contents[file_header.bfOffBits as usize + row_start + pixel]);
+			let row_start: usize = width_padded * row;
+			pixel_vector.push(pre_vector[row_start + pixel]);
 		}
 	}
 	
@@ -287,7 +307,7 @@ pub fn get_bmp(source_file: &PathBuf) -> SpriteData {
 	}
 	
 	// Create and populate palette
-	let mut palette: Vec<u8> = vec![0; 256 * 3];
+	let mut palette: Vec<u8> = vec![0; color_count * 3];
 	
 	for color in 0..color_count {
 		palette[3 * color + 0] = bmp.contents[index + (color_size * color + 2)];
@@ -298,7 +318,7 @@ pub fn get_bmp(source_file: &PathBuf) -> SpriteData {
 	return SpriteData {
 		width: dib_header.width as u16,
 		height: dib_header.height as u16,
-		bit_depth: 8,
+		bit_depth: dib_header.bitcount as u16,
 		pixels: pixel_vector,
 		palette: palette,
 	}
