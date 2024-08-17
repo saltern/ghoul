@@ -60,5 +60,5 @@
  - `ghoul -input sprite_0.bin -palette pal.act -format png`<br/>
  Creates a PNG file called `sprite_0.png` with `pal.act` as its palette.
  
- - `ghoul -input source/*.bin -palcopy -format png`
- Process every BIN file at the `source` directory, and outputs PNGs at the current directory. Will include palettes if present in the BIN files.
+ - `ghoul -input source/*.bin -palcopy -format png`<br/>
+ Processes every BIN file at the `source` directory, and outputs PNGs at the current directory. Will include palettes if present in the BIN files.
