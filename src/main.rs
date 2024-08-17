@@ -82,6 +82,7 @@ pub fn help_message() {
 	println!("    -c or -palcopy               Copy source sprite's palette to output sprite (except RAWs, overrides -p)");
 	println!("    -4 or -force-4bpp            Force output to 4-bit color depth (except RAWs)");
 	println!("    -8 or -force-8bpp            Force output to 8-bit color depth (except RAWs)");
+	println!("    -rgb or -as-rgb              Force input to be treated as RGB (except grayscale)");
 	println!("    -r or -reindex               Reindex output sprites");
 	println!("    -u or -uncompressed          Output uncompressed sprites (BIN only)");
 	println!("    -w or -overwrite             Overwrite pre-existing files");

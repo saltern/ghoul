@@ -18,16 +18,25 @@
  For example: `-input <path>/*.png`. The input format is still required (`*.png`, `*.raw`, `*.bin`, `*.bmp`).
 
  - `-format <format>` or `-f <format>`<br/>
- Specifies the output format. RAW output appends PalMod naming automatically. PNG output is grayscale by default. BIN output is compressed by default.
+ Specifies the output format. RAW output appends PalMod naming automatically. PNG and BMP outputs are indexed. BIN output is compressed by default.
 
  - `-output <path>` or `-o <path>`<br/>
  Specifies the output path. Will be created if it doesn't exist. Defaults to the current working directory if not specified.
 
  - `-palette <file>` or `-p <file>`<br/>
- Specifies the input palette. Works only with PNGs and BMPs. Will accept any file, but will only produce expected results with ACT-format palettes.
+ Specifies the input palette. Will accept any file, but will only produce expected results with ACT-format palettes. Doesn't work on RAWs.
 
  - `-palcopy` or `-c`<br/>
- Copies the source sprite's palette to the output sprite. Takes precedence over `-palette`. Works only for PNGs and BMPs.
+ Copies the source sprite's palette to the output sprite. Takes precedence over `-palette`. Doesn't work on RAWs.
+
+ - `-force-4bpp` or `-4`<br/>
+ Forces the output sprite to 4-bit color depth. Could produce incorrect results ingame if converting from an 8 bpp source.
+ 
+ - `-force-8bpp` or `-8`<br/>
+ Forces the output sprite to 8-bit color depth. Could produce incorrect results ingame if converting from a 4 bpp source.
+ 
+ - `-as-rgb` or `-rgb`<br/>
+ Forces input sprites to be treated as RGB, even if indexed. No effect on sprites without a palette.
 
  - `-reindex` or `-r`<br/>
  Reindexes the output sprite from 1-2-3-4 to 1-3-2-4 and vice versa.
@@ -48,5 +57,8 @@
  - `ghoul -input source/*.bmp -reindex -output source -overwrite`<br/>
  Overwrites every BMP file at the `source` directory with reindexed versions.
 
- - `ghoul -input sprite_0.bin -palette pal.act -f png`<br/>
- Creates an indexed PNG file called `sprite_0.png` with `pal.act` as its palette.
+ - `ghoul -input sprite_0.bin -palette pal.act -format png`<br/>
+ Creates a PNG file called `sprite_0.png` with `pal.act` as its palette.
+ 
+ - `ghoul -input source/*.bin -palcopy -format png`
+ Process every BIN file at the `source` directory, and outputs PNGs at the current directory. Will include palettes if present in the BIN files.
