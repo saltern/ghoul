@@ -110,8 +110,10 @@ pub fn compress(mut data: SpriteData) -> CompressedData {
 	
 	let file_byte_length: usize = compressed_stream.len() + 20;
 	
-	for _i in 0..(16 - file_byte_length % 16) {
-		compressed_stream.push(255);
+	if file_byte_length % 16 != 0 {
+		for _i in 0..(16 - file_byte_length % 16) {
+			compressed_stream.push(255);
+		}
 	}
 	
 	return CompressedData {
