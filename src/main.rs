@@ -149,7 +149,7 @@ fn process_file(parameters: Parameters) {
 		else {
 			temp_palette = data.palette;
 			
-			// Resize palette
+			// Expand palette
 			if temp_palette.len() < 4 * color_count {
 				for index in 0..color_count - (temp_palette.len() / 4) {
 					// RGB
@@ -166,6 +166,11 @@ fn process_file(parameters: Parameters) {
 						temp_palette.push(0x80);
 					}
 				}
+			}
+			
+			// Truncate palette
+			else {
+				temp_palette.resize(color_count * 4, 0u8);
 			}
 		}
 	}

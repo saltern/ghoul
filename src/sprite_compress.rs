@@ -196,8 +196,9 @@ pub fn decompress(bin_data: Vec<u8>, header: BinHeader) -> SpriteData {
 	
 	// Bit depth management
 	match header.bit_depth {
-		1 => pixel_vector = sprite_transform::bpp_from_1(pixel_vector, true),
-		2 => pixel_vector = sprite_transform::bpp_from_2(pixel_vector, true),
+		// 1 and 2 bpp not currently used
+		// 1 => pixel_vector = sprite_transform::bpp_from_1(pixel_vector, true),
+		// 2 => pixel_vector = sprite_transform::bpp_from_2(pixel_vector, true),
 		4 => pixel_vector = sprite_transform::bpp_from_4(pixel_vector, true),
 		8 => (), // No transform needed
 		// Shouldn't ever happen
