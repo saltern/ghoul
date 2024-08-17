@@ -9,7 +9,6 @@ use std::time::Instant;
 pub mod shared_types;
 pub mod param_validator;
 pub mod bin_header;
-pub mod bit_depth;
 pub mod sprite_get;
 pub mod sprite_make;
 pub mod sprite_compress;
@@ -74,8 +73,8 @@ pub fn help_message() {
 	println!("    -o or -output  <path>        Set output path, defaults to the current directory if not specified");
 	println!("    -p or -palette <pal file>    Color output sprite using this .act palette (except RAWs)");
 	println!("    -c or -palcopy               Copy source sprite's palette to output sprite (except RAWs, overrides -p)");
-	println!("    -4 or -force-4bpp            Force output to 4-bit color depth (compressed BIN only)");
-	println!("    -8 or -force-8bpp            Force output to 8-bit color depth (compressed BIN only)");
+	println!("    -4 or -force-4bpp            Force output to 4-bit color depth (except RAWs)");
+	println!("    -8 or -force-8bpp            Force output to 8-bit color depth (except RAWs)");
 	println!("    -r or -reindex               Reindex output sprites");
 	println!("    -u or -uncompressed          Output uncompressed sprites (BIN only)");
 	println!("    -w or -overwrite             Overwrite pre-existing files");
@@ -114,58 +113,52 @@ fn process_file(parameters: Parameters) {
 		}
 	}
 	
-	// Palette handling overrides what's currently in data
-	let mut temp_palette: Vec<u8> = Vec::new();
-	let alpha_processing: bool;
-	
-	// I should handle the following palette sizes...
-	//   48 bytes: 16-color palette, RGB
-	//   64 bytes: 16-color palette, RGBA
-	//  768 bytes: 256-color palette, RGB
-	// 1024 bytes: 256-color palette, RGBA
+	// -as-rgb
+	if !data.palette.is_empty() && parameters.as_rgb {
+		data.pixels = sprite_transform::indexed_as_rgb(data.pixels, &data.palette);
+	}
 	
 	// -force-4bpp / -force-8bpp
 	if parameters.forced_bit_depth {
 		data.bit_depth = parameters.bit_depth as u16;
 	}
-	// Bit depth from palette size
 	else {
-		match data.palette.len() {
-			48 | 64 => data.bit_depth = 4,
-			_ => data.bit_depth = 8,
-		}
+		data.bit_depth = std::cmp::max(data.bit_depth, 4);
 	}
 	
+	let mut temp_palette: Vec<u8> = Vec::new();
 	let color_count: usize = 2usize.pow(data.bit_depth as u32);
+	let alpha_processing: bool;
 	
 	// Prioritize -palcopy
 	if parameters.palette_transfer {
-		match data.palette.len() {
-			// RGB palette
-			48 | 768 => {
-				alpha_processing = true;
+		alpha_processing = false;
+		
+		if data.palette.is_empty() {
+			println!("Warning: Will not -palcopy as source contains no palette");
+			println!("\tFile: {}", parameters.source_path.display());
+		}
+		
+		else {
+			temp_palette = data.palette;
+			
+			// Resize palette
+			if temp_palette.len() < 4 * color_count {
+				for index in 0..color_count - (temp_palette.len() / 4) {
+					// RGB
+					temp_palette.push(0x00);
+					temp_palette.push(0x00);
+					temp_palette.push(0x00);
 				
-				for index in 0..data.palette.len() {
-					// Alpha, modified later
-					if index % 3 == 0 && index != 0 {
+					// Default alpha
+					if (index / 16) % 2 == 0 && index % 8 == 0 && index != 8 {
+						temp_palette.push(0x00);
+					}
+					
+					else {
 						temp_palette.push(0x80);
 					}
-					// Actual color
-					temp_palette.push(data.palette[index]);
 				}
-				temp_palette.push(0x80);
-			},
-			
-			// RGBA palette
-			64 | 1024 => {
-				alpha_processing = false;
-				temp_palette = data.palette;
-			},
-			
-			_ => {
-				alpha_processing = false;
-				println!("Warning: Will not -palcopy as source palette is empty or has an invalid size ({})", data.palette.len());
-				println!("\tFile: {}", parameters.source_path.display());
 			}
 		}
 	}
@@ -178,12 +171,13 @@ fn process_file(parameters: Parameters) {
 				alpha_processing = true;
 							
 				for index in 0..data.len() {
-					// Alpha, modified later
-					if index % 3 == 0 && index != 0 {
-						temp_palette.push(0x80);
-					}
 					// Actual color
 					temp_palette.push(data[index]);
+					
+					// Alpha, modified later
+					if (index + 1) % 3 == 0 {
+						temp_palette.push(0x80);
+					}
 				}
 			},
 			
@@ -206,7 +200,7 @@ fn process_file(parameters: Parameters) {
 		temp_palette.resize(color_count * 4, 0u8);
 		
 		for index in 0..color_count {
-			if index % 32 == 0 || (index as i32 - 8) % 32 == 0 && index != 8 {
+			if (index / 16) % 2 == 0 && index % 8 == 0 && index != 8 {
 				temp_palette[4 * index + 3] = 0x00;
 			}
 			else {

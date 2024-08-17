@@ -23,6 +23,7 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 	let mut palette_transfer: bool = false;
 	let mut forced_bit_depth: bool = false;
 	let mut bit_depth: usize = 8;
+	let mut as_rgb: bool = false;
 	let mut uncompressed: bool = false;
 	let mut reindex: bool = false;
 	let mut verbose: bool = false;
@@ -129,15 +130,29 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 			"-l" | "-list" => verbose = true,
 			"-u" | "-uncompressed" => uncompressed = true,
 			"-w" | "-overwrite" => overwrite = true,
+			"-rgb" | "-as-rgb" => as_rgb = true,
+			
+			// 1bpp and 2bpp output support not necessary
+			// "-1" | "-force-1bpp" => {
+				// forced_bit_depth = true;
+				// bit_depth = 1;
+			// },
+			
+			// "-2" | "-force-2bpp" => {
+				// forced_bit_depth = true;
+				// bit_depth = 2;
+			// },
+			
 			"-4" | "-force-4bpp" => {
 				forced_bit_depth = true;
 				bit_depth = 4;
 			},
+			
 			"-8" | "-force-8bpp" => {
 				forced_bit_depth = true;
 				bit_depth = 8;
 			},
-			_ => (),
+			_ => println!("Unexpected parameter '{}', ignoring.", &this_argument),
 		}
 	}
 	
@@ -269,6 +284,7 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 		palette_transfer: palette_transfer,
 		forced_bit_depth: forced_bit_depth,
 		bit_depth: bit_depth,
+		as_rgb: as_rgb,
 		uncompressed: uncompressed,
 		reindex: reindex,
 		verbose: verbose,

@@ -5,7 +5,7 @@ use bitstream_io::{BitReader, BitRead, BitWriter, BitWrite, BigEndian};
 use crate::{
 	shared_types::{SpriteData, CompressedData},
 	bin_header::BinHeader,
-	bit_depth,
+	sprite_transform,
 };
 
 const WINDOW_SIZE: usize = 512;
@@ -13,9 +13,15 @@ const TOKEN_SIZE_MAX: usize = 130;
 
 
 pub fn compress(mut data: SpriteData) -> CompressedData {
-	// Adapt 4 bpp pixel vector to 8 bpp
-	if data.bit_depth == 4 {
-		data.pixels = bit_depth::bpp_4to8(data.pixels, true);
+	// Bit depth management
+	match data.bit_depth {
+		// 1 and 2 bpp not currently in use
+		// 1 => data.pixels = sprite_transform::bpp_to_1(data.pixels, true),
+		// 2 => data.pixels = sprite_transform::bpp_to_2(data.pixels, true),
+		4 => data.pixels = sprite_transform::bpp_to_4(data.pixels, true),
+		8 => (), // No transform needed
+		// Shouldn't ever happen
+		_ => panic!("sprite_compress::compress() error: Invalid SpriteData bit depth"),
 	}
 
 	// Loop variables
@@ -188,8 +194,14 @@ pub fn decompress(bin_data: Vec<u8>, header: BinHeader) -> SpriteData {
 		}
 	}
 	
-	if header.bit_depth == 4 {
-		pixel_vector = bit_depth::bpp_8to4(pixel_vector, true);
+	// Bit depth management
+	match header.bit_depth {
+		1 => pixel_vector = sprite_transform::bpp_from_1(pixel_vector, true),
+		2 => pixel_vector = sprite_transform::bpp_from_2(pixel_vector, true),
+		4 => pixel_vector = sprite_transform::bpp_from_4(pixel_vector, true),
+		8 => (), // No transform needed
+		// Shouldn't ever happen
+		_ => panic!("sprite_compress::decompress() error: Invalid BIN bit depth"),
 	}
 	
 	pixel_vector.resize(header.width as usize * header.height as usize, 0u8);

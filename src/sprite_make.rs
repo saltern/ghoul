@@ -8,8 +8,8 @@ use crate::{
 	SpriteFormat,
 	shared_types::CompressedData,
 	bin_header,
-	bit_depth,
 	sprite_compress,
+	sprite_transform,
 };
 
 
@@ -84,14 +84,17 @@ fn bmp_header(width: u16, height: u16, bit_depth: u16) -> Vec<u8> {
 	bmp_data.push(0x00);
 	
 	// 2 bytes, bpp
-	if bit_depth == 4 {
-		bmp_data.push(0x04);
+	match bit_depth {
+		1 => bmp_data.push(0x01),
+		2 => bmp_data.push(0x02),
+		4 => bmp_data.push(0x04),
+		8 => bmp_data.push(0x08),
+		
+		// Theoretically shouldn't happen
+		_ => panic!("sprite_make::bmp_header() error: Invalid color depth!"),
 	}
-	else {
-		bmp_data.push(0x08);
-	}
+
 	bmp_data.push(0x00);
-	
 	return bmp_data;
 }
 
@@ -119,28 +122,71 @@ pub fn make_png(parameters: Parameters, data: SpriteData) {
 	}
 
 	let ref mut buffer = BufWriter::new(png_file);
-	
 	let mut encoder = png::Encoder::new(buffer, data.width as u32, data.height as u32);
-	encoder.set_depth(png::BitDepth::Eight);
-	encoder.set_color(png::ColorType::Grayscale);
+	
+	// 4 bpp handling
+	let working_pixels: Vec<u8>;
+	
+	match data.bit_depth {
+		// 1 and 2 bpp not currently in use
+		// 1 => {
+			// working_pixels = sprite_transform::bpp_to_1(data.pixels, false);
+			// encoder.set_depth(png::BitDepth::One);
+		// },
+
+		// 2 => {
+			// working_pixels = sprite_transform::bpp_to_2(data.pixels, false);
+			// encoder.set_depth(png::BitDepth::Two);
+		// },
+		
+		4 => {
+			working_pixels = sprite_transform::bpp_to_4(data.pixels, false);
+			encoder.set_depth(png::BitDepth::Four);
+		},
+		
+		8 => {
+			working_pixels = data.pixels;
+			encoder.set_depth(png::BitDepth::Eight);
+		},
+		
+		// Shouldn't happen
+		_ => panic!("sprite_make::make_png() error: Invalid bit depth"),
+	}
+	
+	// encoder.set_color(png::ColorType::Grayscale);
+	encoder.set_color(png::ColorType::Indexed);
 	
 	// Palette
+	let color_count: usize = 2usize.pow(data.bit_depth as u32);
+	let mut rgb_palette: Vec<u8> = Vec::with_capacity(color_count * 3);
+	let mut transparency: Vec<u8> = vec![0xFF; color_count];
+	
+	// Color pal
 	if !data.palette.is_empty() {
-		let mut rgb_palette: Vec<u8> = Vec::with_capacity(768);
-		
-		// Strip alpha
-		for color in 0..2usize.pow(data.bit_depth as u32) {
+		for color in 0..color_count {
 			rgb_palette.push(data.palette[4 * color + 0]);
 			rgb_palette.push(data.palette[4 * color + 1]);
 			rgb_palette.push(data.palette[4 * color + 2]);
+			transparency[color] = data.palette[4 * color + 3];
 		}
-	
-		encoder.set_color(png::ColorType::Indexed);
-		encoder.set_palette(rgb_palette);
+		// encoder.set_color(png::ColorType::Indexed);
 	}
 	
+	// Grayscale pal
+	else {
+		for color in 0..color_count {
+			rgb_palette.push(color as u8);
+			rgb_palette.push(color as u8);
+			rgb_palette.push(color as u8);
+			transparency[color] = 0xFF;
+		}
+	}
+			
+	encoder.set_palette(rgb_palette);
+	encoder.set_trns(transparency);
+	
 	let mut writer = encoder.write_header().expect("sprite_make::make_png() error: Could not write PNG header");
-	writer.write_image_data(&data.pixels).unwrap();
+	writer.write_image_data(&working_pixels).unwrap();
 }
 
 
@@ -209,7 +255,6 @@ pub fn make_bin(parameters: Parameters, mut data: SpriteData) {
 	let clut: u16;
 	if data.palette.is_empty() {
 		clut = 0x0000;
-		// data.bit_depth = 8;
 	}
 	else {
 		clut = 0x0020;
@@ -236,7 +281,7 @@ pub fn make_bin(parameters: Parameters, mut data: SpriteData) {
 	// Uncompressed mode
 	if parameters.uncompressed {
 		if data.bit_depth == 4 {
-			data.pixels = bit_depth::bpp_4to8(data.pixels, true);
+			data.pixels = sprite_transform::bpp_to_4(data.pixels, true);
 		}
 		let _ = buffer.write_all(&data.pixels);
 	}
@@ -325,26 +370,27 @@ pub fn make_bmp(parameters: Parameters, data: SpriteData) {
 	let _ = buffer.write_all(&header);
 	let _ = buffer.write_all(&color_table);
 	
-	let working_pixels: Vec<u8>;
-	let width: usize;
+	let byte_vector: Vec<u8>;
 	
-	// 4 bpp handling
-	if data.bit_depth == 4 {
-		working_pixels = bit_depth::bpp_4to8(data.pixels, false);
-		width = ((data.width / 2) + (data.width % 2)) as usize; // I pray to Beelzebub that this works
-	}
-	else {
-		working_pixels = data.pixels;
-		width = data.width as usize;
+	match data.bit_depth {
+		// 1 and 2 bpp not currently in use
+		// 1 => byte_vector = sprite_transform::bpp_to_1(data.pixels, false),
+		// 2 => byte_vector = sprite_transform::bpp_to_2(data.pixels, false),
+		4 => byte_vector = sprite_transform::bpp_to_4(data.pixels, false),
+		8 => byte_vector = data.pixels,
+		// Shouldn't happen
+		_ => panic!("sprite_make::make_bmp() error: Invalid bit depth"),
 	}
 	
 	// Cheers Wikipedia
-	let padding: usize = (((data.bit_depth * data.width + 31) / 32) * 4) as usize - width;
+	let row_length: usize = (((data.bit_depth * data.width + 31) / 32) * 4) as usize;
+	let byte_width: usize = byte_vector.len() / data.height as usize;
+	let padding: usize = row_length - byte_width;
 	
 	// Upside-down write with padding
 	for y in (0..data.height as usize).rev() {
-		let row_start: usize = y * width;
-		let _ = buffer.write_all(&working_pixels[row_start..row_start + width]);
+		let row_start: usize = y * byte_width;
+		let _ = buffer.write_all(&byte_vector[row_start..row_start + byte_width]);
 		let _ = buffer.write_all(&vec![0u8; padding]);
 	}
 	

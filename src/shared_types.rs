@@ -11,6 +11,7 @@ pub struct Parameters {
 	pub palette_transfer: bool,
 	pub forced_bit_depth: bool,
 	pub bit_depth: usize,
+	pub as_rgb: bool,
 	pub uncompressed: bool,
 	pub reindex: bool,
 	pub verbose: bool,
