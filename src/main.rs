@@ -45,16 +45,23 @@ pub fn main() {
 	
 	let parameters: Parameters = opt_parameters.unwrap();
 	
+	if parameters.forced_bit_depth {
+		println!("Note: Changing a sprite's color depth could produce incorrect results ingame.");
+	}
+	
+	println!("Working...");
+	let instant = Instant::now();
+	
 	if parameters.directory_mode {
-		println!("Working...");
-		let instant = Instant::now();
 		process_directory(parameters);
-		println!(" in {}ms.", instant.elapsed().as_millis());
 	}
 	
 	else {
 		process_file(parameters);
+		print!("Processed 1 sprite");
 	}
+	
+	println!(" in {}ms.", instant.elapsed().as_millis());
 }
 
 
