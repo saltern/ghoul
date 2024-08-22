@@ -141,7 +141,7 @@ fn process_file(parameters: Parameters) {
 	
 	// Prioritize -palcopy
 	if parameters.palette_transfer {
-		alpha_processing = false;
+		alpha_processing = parameters.opaque;
 		
 		if data.palette.is_empty() {
 			println!("Warning: Will not -palcopy as source contains no palette");
@@ -209,7 +209,7 @@ fn process_file(parameters: Parameters) {
 	
 	// Process palette alpha
 	// Applies default values in case no alpha data was present in source palette
-	if alpha_processing || parameters.opaque {
+	if alpha_processing {
 		// Expand or truncate to 16 or 256 colors with alpha
 		temp_palette.resize(color_count * 4, 0u8);
 		
