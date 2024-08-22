@@ -15,6 +15,7 @@ enum ArgumentType {
 	PALETTE,
 }
 
+
 pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 	let mut source_file_name: &str = "";
 	let mut source_palette: &str = "";
@@ -24,6 +25,7 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 	let mut forced_bit_depth: bool = false;
 	let mut bit_depth: usize = 8;
 	let mut as_rgb: bool = false;
+	let mut opaque: bool = false;
 	let mut uncompressed: bool = false;
 	let mut reindex: bool = false;
 	let mut verbose: bool = false;
@@ -131,6 +133,7 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 			"-u" | "-uncompressed" => uncompressed = true,
 			"-w" | "-overwrite" => overwrite = true,
 			"-rgb" | "-as-rgb" => as_rgb = true,
+			"-q" | "-opaque" => opaque = true,
 			
 			// 1bpp and 2bpp output support not necessary
 			// "-1" | "-force-1bpp" => {
@@ -285,6 +288,7 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 		forced_bit_depth: forced_bit_depth,
 		bit_depth: bit_depth,
 		as_rgb: as_rgb,
+		opaque: opaque,
 		uncompressed: uncompressed,
 		reindex: reindex,
 		verbose: verbose,

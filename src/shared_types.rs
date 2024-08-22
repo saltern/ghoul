@@ -12,6 +12,7 @@ pub struct Parameters {
 	pub forced_bit_depth: bool,
 	pub bit_depth: usize,
 	pub as_rgb: bool,
+	pub opaque: bool,
 	pub uncompressed: bool,
 	pub reindex: bool,
 	pub verbose: bool,

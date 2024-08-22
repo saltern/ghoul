@@ -83,6 +83,7 @@ pub fn help_message() {
 	println!("    -4 or -force-4bpp            Force output to 4-bit color depth (except RAWs)");
 	println!("    -8 or -force-8bpp            Force output to 8-bit color depth (except RAWs)");
 	println!("    -rgb or -as-rgb              Force input to be treated as RGB (except grayscale)");
+	println!("    -q or -opaque                Make output sprite's palette (-palette, -palcopy) completely opaque");
 	println!("    -r or -reindex               Reindex output sprites");
 	println!("    -u or -uncompressed          Output uncompressed sprites (BIN only)");
 	println!("    -w or -overwrite             Overwrite pre-existing files");
@@ -157,7 +158,7 @@ fn process_file(parameters: Parameters) {
 					temp_palette.push(0x00);
 					temp_palette.push(0x00);
 					temp_palette.push(0x00);
-				
+					
 					// Default alpha
 					if (index / 16) % 2 == 0 && index % 8 == 0 && index != 8 {
 						temp_palette.push(0x00);
@@ -208,14 +209,21 @@ fn process_file(parameters: Parameters) {
 	
 	// Process palette alpha
 	// Applies default values in case no alpha data was present in source palette
-	if alpha_processing {
+	if alpha_processing || parameters.opaque {
 		// Expand or truncate to 16 or 256 colors with alpha
 		temp_palette.resize(color_count * 4, 0u8);
 		
 		for index in 0..color_count {
+			if parameters.opaque {
+				temp_palette[4 * index + 3] = 0xFF;
+				continue;
+			}
+			
+			// Default alpha
 			if (index / 16) % 2 == 0 && index % 8 == 0 && index != 8 {
 				temp_palette[4 * index + 3] = 0x00;
 			}
+			
 			else {
 				temp_palette[4 * index + 3] = 0x80;
 			}
