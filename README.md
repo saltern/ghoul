@@ -38,6 +38,9 @@
  - `-as-rgb` or `-rgb`<br/>
  Forces input sprites to be treated as RGB, even if indexed. No effect on sprites without a palette.
 
+ - `-opaque` or `-q`<br/>
+ Makes every color in the input palette (when using `-palette` or `-palcopy`) completely opaque (255).
+
  - `-reindex` or `-r`<br/>
  Reindexes the output sprite from 1-2-3-4 to 1-3-2-4 and vice versa.
 
@@ -58,7 +61,10 @@
  Overwrites every BMP file at the `source` directory with reindexed versions.
 
  - `ghoul -input sprite_0.bin -palette pal.act -format png`<br/>
- Creates a PNG file called `sprite_0.png` with `pal.act` as its palette.
+ Processes the file `sprite_0.bin` in the current directory, creating a PNG file called `sprite_0.png` with `pal.act` as its palette.
  
  - `ghoul -input source/*.bin -palcopy -format png`<br/>
  Processes every BIN file at the `source` directory, and outputs PNGs at the current directory. Will include palettes if present in the BIN files.
+ 
+ - `ghoul -input *.png -palcopy -opaque -overwrite`<br/>
+ Overwrites every PNG file in the current directory with completely opaque versions, if they have palettes.
