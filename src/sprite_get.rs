@@ -54,7 +54,7 @@ pub fn get_png(source_file: &PathBuf) -> SpriteData {
 				Some(pal_data) => {
 					let temp_pal: Vec<u8> = pal_data.to_vec();
 					let color_count: usize = temp_pal.len() / 3;
-					let mut alpha_vec: Vec<u8> = vec![0x80; color_count];
+					let mut alpha_vec: Vec<u8> = Vec::new();
 					
 					match &reader.info().trns {
 						Some(alpha) => {
@@ -64,6 +64,7 @@ pub fn get_png(source_file: &PathBuf) -> SpriteData {
 						_ => (),
 					}
 					
+					alpha_vec.resize(color_count, 0x80);
 					palette = vec![0; color_count * 4];
 					
 					for index in 0..color_count {
