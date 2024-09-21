@@ -126,7 +126,7 @@ pub fn bpp_from_2(input_pixels: Vec<u8>, flip: bool) -> Vec<u8> {
 	}
 	
 	return output_pixels;
-}	
+}
 	
 
 pub fn bpp_to_4(input_pixels: Vec<u8>, flip: bool) -> Vec<u8> {

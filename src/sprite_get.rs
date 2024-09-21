@@ -295,12 +295,10 @@ pub fn get_bmp(source_file: &PathBuf) -> SpriteData {
 	
 	// Trim padding
 	let mut pixel_vector: Vec<u8> = Vec::new();
-	let u_width: usize = dib_header.width as usize;
-	let u_height: usize = dib_header.height as usize;
 	
-	for y in (0..u_height).rev() {
-		for x in 0..u_width {
-			pixel_vector.push(pixel_array[y * u_width + x]);
+	for y in (0..dib_header.height as usize).rev() {
+		for x in 0..dib_header.width as usize {
+			pixel_vector.push(pixel_array[y * row_size + x]);
 		}
 	}
 	
