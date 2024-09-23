@@ -15,6 +15,8 @@ pub struct Parameters {
 	pub opaque: bool,
 	pub uncompressed: bool,
 	pub reindex: bool,
+	pub hash_mode: HashMode,
+	pub hash_value: u16,
 	pub verbose: bool,
 	pub overwrite: bool,
 }
@@ -28,7 +30,14 @@ pub enum SpriteFormat {
 	BMP,
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Clone)]
+pub enum HashMode {
+	GENERATE,
+	PRESET,
+	INCREMENTAL,
+}
+
+#[derive(Clone)]
 pub struct SpriteData {
 	pub width: u16,
 	pub height: u16,

@@ -6,6 +6,7 @@ use crate::{
 	Parameters,
 	SpriteData,
 	SpriteFormat,
+	shared_types::HashMode,
 	shared_types::CompressedData,
 	bin_header,
 	sprite_compress,
@@ -153,7 +154,6 @@ pub fn make_png(parameters: Parameters, data: SpriteData) {
 		_ => panic!("sprite_make::make_png() error: Invalid bit depth"),
 	}
 	
-	// encoder.set_color(png::ColorType::Grayscale);
 	encoder.set_color(png::ColorType::Indexed);
 	
 	// Palette
@@ -250,8 +250,7 @@ pub fn make_bin(parameters: Parameters, mut data: SpriteData) {
 		},
 	}
 	
-	let ref mut buffer = BufWriter::new(bin_file);
-	
+	// Header
 	let clut: u16;
 	if data.palette.is_empty() {
 		clut = 0x0000;
@@ -260,9 +259,7 @@ pub fn make_bin(parameters: Parameters, mut data: SpriteData) {
 		clut = 0x0020;
 	}
 	
-	// Header
-	// Ugly as sin, I should change this later
-	let header_vector: Vec<u8> = bin_header::get_bytes(bin_header::BinHeader {
+	let mut bin_header = bin_header::BinHeader {
 		compressed: !parameters.uncompressed,
 		clut: clut,
 		bit_depth: data.bit_depth,
@@ -270,20 +267,20 @@ pub fn make_bin(parameters: Parameters, mut data: SpriteData) {
 		height: data.height,
 		tw: 0x0,
 		th: 0x0,
-		hash: 0x0,
-	});
+		hash: parameters.hash_value,
+	};
 	
-	let _ = buffer.write_all(&header_vector);
+	let palette: Vec<u8> = data.palette.clone();
 	
-	// clut
-	let _ = buffer.write_all(&data.palette);
+	// Contents
+	let mut sprite_contents: Vec<u8> = Vec::new();
 	
 	// Uncompressed mode
 	if parameters.uncompressed {
 		if data.bit_depth == 4 {
 			data.pixels = sprite_transform::bpp_to_4(data.pixels, true);
 		}
-		let _ = buffer.write_all(&data.pixels);
+		sprite_contents.extend_from_slice(&data.pixels[..]);
 	}
 	
 	// Compressed mode
@@ -292,11 +289,11 @@ pub fn make_bin(parameters: Parameters, mut data: SpriteData) {
 		
 		// Yes, this is a u32 split across two LE u16s.
 		let iterations_u32: u32 = compressed_data.iterations as u32;
-		let _ = buffer.write_all(&[
-			(iterations_u32 >> 16) as u8, // BB
-			(iterations_u32 >> 24) as u8, // AA
-			iterations_u32 as u8, // DD
-			(iterations_u32 >> 8) as u8, // CC
+		sprite_contents.extend_from_slice(&[
+			(iterations_u32 >> 16) as u8,	// BB
+			(iterations_u32 >> 24) as u8,	// AA
+			(iterations_u32 >> 00) as u8,	// DD
+			(iterations_u32 >> 08) as u8,	// CC
 		]);
 		
 		// LE write
@@ -304,18 +301,40 @@ pub fn make_bin(parameters: Parameters, mut data: SpriteData) {
 		let length: usize = compressed_data.stream.len();
 		
 		while byte + 1 < length {
-			let _ = buffer.write_all(&[
-				compressed_data.stream[byte + 1],
-				compressed_data.stream[byte]
-			]);
-			
+			sprite_contents.push(compressed_data.stream[byte + 1]);
+			sprite_contents.push(compressed_data.stream[byte + 0]);
 			byte += 2;
 		}
-		
-		if byte < length {
-			compressed_data.stream[byte];
-		}
 	}
+	
+	// Generate hash
+	match parameters.hash_mode {
+		HashMode::GENERATE => {
+			let mut hash: u16 = 0;
+			
+			for byte in 0..sprite_contents.len() / 2 {
+				hash = hash ^ (sprite_contents[byte] as u16 | (sprite_contents[byte + 1] as u16) << 8);
+			}
+			
+			bin_header.hash = hash;
+		},
+		
+		_ => (),
+	}
+	
+	// Write file
+	let ref mut buffer = BufWriter::new(bin_file);
+	
+	// Header
+	let header_vector: Vec<u8> = bin_header::get_bytes(bin_header);
+	let _ = buffer.write_all(&header_vector);
+	
+	// CLUT
+	let _ = buffer.write_all(&palette);
+	
+	// Contents
+	let _ = buffer.write_all(&sprite_contents);
+	let _ = buffer.flush();
 }
 
 

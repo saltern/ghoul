@@ -17,7 +17,8 @@ pub mod sprite_transform;
 use crate::shared_types::{
 	Parameters,
 	SpriteData,
-	SpriteFormat
+	SpriteFormat,
+	HashMode,
 };
 
 
@@ -71,25 +72,35 @@ pub fn help_message() {
 	println!("Can convert and reindex PNG-, RAW-, BIN-, and BMP-format sprites.");
 	println!();
 	println!("Usage:");
-	println!("    ghoul -i <input file> [-f format] [-o output] [-p/-c] [-4/-8] [-r] [-u] [-w] [-l]");
+	println!("    ghoul -i <input path> [-f format] [-o <output path>] [-w] [-l] [-p/-c] [-q] [-rgb] [-4/-8] [-r] [-hs/-hi] [-u]");
 	println!();
-	println!("To process full directories, use an asterisk as the input file name (e.g. 'path/*.png').");
+	println!("To process full directories, use an asterisk as the input file name (e.g. '-i path/*.png').");
 	println!();
 	println!("Available parameters:");
-	println!("    -f or -format  <format>      Convert sprites (formats: 'png', 'raw', 'bin', 'bmp')");
-	println!("    -o or -output  <path>        Set output path, defaults to the current directory if not specified");
-	println!("    -p or -palette <pal file>    Color output sprite using this .act palette (except RAWs)");
-	println!("    -c or -palcopy               Copy source sprite's palette to output sprite (except RAWs, overrides -p)");
-	println!("    -4 or -force-4bpp            Force output to 4-bit color depth (except RAWs)");
-	println!("    -8 or -force-8bpp            Force output to 8-bit color depth (except RAWs)");
-	println!("    -rgb or -as-rgb              Force input to be treated as RGB (except grayscale)");
-	println!("    -q or -opaque                Make output sprite's palette (-palette, -palcopy) completely opaque");
-	println!("    -r or -reindex               Reindex output sprites");
-	println!("    -u or -uncompressed          Output uncompressed sprites (BIN only)");
-	println!("    -w or -overwrite             Overwrite pre-existing files");
-	println!("    -l or -list                  List processed files");
+	println!("");
+	println!("  Files:");
+	println!("    -i   or -input   <input path>  Set the input file or directory");
+	println!("    -o   or -output  <path>        Set output path, defaults to the current directory if not specified");
+	println!("    -f   or -format  <format>      Convert sprites (formats: 'png', 'raw', 'bin', 'bmp')");
+	println!("    -w   or -overwrite             Overwrite pre-existing files");
+	println!("    -l   or -list                  Print each filename to the console as it's processed");
+	println!("");
+	println!("  Palette (no effect on RAW files):");
+	println!("    -p   or -palette <pal file>    Color output sprite using this .act palette");
+	println!("    -c   or -palcopy               Copy source sprite's palette to output sprite (overrides -palette)");
+	println!("    -q   or -opaque                Make output sprite's palette completely opaque");
+	println!("");
+	println!("  Image processing:");
+	println!("    -rgb or -as-rgb                Force inputs to be treated as RGB (except RAWs and grayscale)");
+	println!("    -4   or -force-4bpp            Force output to 4-bit color depth (except RAWs)");
+	println!("    -8   or -force-8bpp            Force output to 8-bit color depth (except RAWs)");
+	println!("    -r   or -reindex               Reindex output");
+	println!("");
+	println!("  BIN sprites:");
+	println!("    -hs  or -hash-set <number>     Output sprites with set hash <number> (0 to 65535)");
+	println!("    -hi  or -hash-inc <number>     Output sprites with incremental hashes starting at <number>");
+	println!("    -u   or -uncompressed          Output uncompressed sprites");
 	println!();
-	println!("When an output path is not specified, the current working directory will be used.");
 }
 
 
@@ -257,43 +268,61 @@ fn type_matches(extension: Option<&OsStr>, format: SpriteFormat) -> bool {
 }
 
 
-fn process_directory_thread(mut parameters: Parameters, offset: usize) -> usize {
-	let mut items_processed: usize = 0;
-	let mut directory_items: ReadDir = parameters.source_path.read_dir().expect(
-		"main::process_directory_thread() error: Could not read source path");
-
-	for _i in 0..offset {
-		directory_items.next();
-	}
-
-	loop {
-		match directory_items.next() {
-			Some(item) => {
-				let this_path: PathBuf = item.unwrap().path();
-				
-				if type_matches(this_path.extension(), parameters.source_format) {
-					parameters.source_path = this_path;
-					process_file(parameters.clone());
-					items_processed += 1;
-				}
-			},
-			None => return items_processed,
+fn process_directory_thread(pathbuf_vec: Vec<PathBuf>, mut parameters: Parameters, start_at: u16) {
+	let mut file_number: u16 = parameters.hash_value + start_at;
+	
+	for file in 0..pathbuf_vec.len() {
+		if type_matches(pathbuf_vec[file].extension(), parameters.source_format) {
+			parameters.source_path = pathbuf_vec[file].clone();
+			
+			if parameters.hash_mode == HashMode::INCREMENTAL {
+				parameters.hash_value = file_number;
+			}
+			
+			process_file(parameters.clone());
+			file_number += 2;
 		}
-		directory_items.next();
 	}
 }
 
 
 // Experimental multithreading
 fn process_directory(parameters: Parameters) {
+	// Get all files first -- prevents issues when source and target
+	// paths are the same and the entire directory is being processed
+	
+	let mut item_count: usize = 0;
+	let mut pathbuf_vec1: Vec<PathBuf> = Vec::new();
+	let mut pathbuf_vec2: Vec<PathBuf> = Vec::new();
+	
+	let mut directory_items: ReadDir = parameters.source_path.read_dir().expect(
+		"main::process_directory() error: Could not read source path");
+	
+	loop {
+		match directory_items.next() {
+			Some(item) => {
+				if item_count % 2 == 0 {
+					pathbuf_vec1.push(item.unwrap().path());
+				}
+				
+				else {
+					pathbuf_vec2.push(item.unwrap().path());
+				}
+			
+				item_count += 1;
+			},
+			
+			None => break,
+		}
+	}
+
 	let params_t2: Parameters = parameters.clone();
 	
-	let handle = thread::spawn(move || process_directory_thread(params_t2, 1));
-	let item_count: usize = process_directory_thread(parameters, 0);
+	let handle = thread::spawn(move || process_directory_thread(pathbuf_vec2, params_t2, 1));
+	process_directory_thread(pathbuf_vec1, parameters, 0);
 	
 	// Wait for both threads to be done
-	let item_count_t2: usize = handle.join().unwrap();
+	handle.join().unwrap();
 	
-	print!("Processed {} sprites", item_count + item_count_t2);
-	// print!("Processed {} sprites", item_count);
+	print!("Processed {} sprites", item_count);
 }

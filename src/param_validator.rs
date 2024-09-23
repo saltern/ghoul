@@ -2,6 +2,7 @@ use std::fs;
 use std::ffi::OsStr;
 
 use crate::{
+	shared_types::HashMode,
 	PathBuf,
 	Parameters,
 	SpriteFormat
@@ -13,6 +14,7 @@ enum ArgumentType {
 	OUTPUT,
 	FORMAT,
 	PALETTE,
+	HASH,
 }
 
 
@@ -26,6 +28,8 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 	let mut bit_depth: usize = 8;
 	let mut as_rgb: bool = false;
 	let mut opaque: bool = false;
+	let mut hash_mode: HashMode = HashMode::GENERATE;
+	let mut hash_value: u16 = 0x0000;
 	let mut uncompressed: bool = false;
 	let mut reindex: bool = false;
 	let mut verbose: bool = false;
@@ -105,7 +109,7 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 					},
 					
 					_ => {
-						println!("Unsupported output format '{}'. Supported formats: 'png', 'raw', 'bin'.", argument);
+						println!("Unsupported output format '{}'. Supported formats: 'png', 'raw', 'bin', 'bmp'.", &args[argument]);
 						return None;
 					},
 				}
@@ -117,34 +121,40 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 				continue;
 			},
 			
+			ArgumentType::HASH => {
+				match &args[argument].parse::<u16>() {
+					Ok(value) => hash_value = *value,
+					
+					_ => {
+						println!("Could not parse hash as u16 (0 to 65535), defaulting to 0.");
+						hash_value = 0;
+					},
+				}
+				
+				next_arg = ArgumentType::NONE;
+				continue;
+			}
+			
 			_ => (),
 		}
 			
 		next_arg = ArgumentType::NONE;
 	
 		match &this_argument.to_lowercase() as &str {
+			// File parameters
 			"-i" | "-input" => next_arg = ArgumentType::INPUT,
 			"-o" | "-output" => next_arg = ArgumentType::OUTPUT,
 			"-f" | "-format" => next_arg = ArgumentType::FORMAT,
+			"-w" | "-overwrite" => overwrite = true,
+			"-l" | "-list" => verbose = true,
+			
+			// Palette parameters
 			"-p" | "-palette" => next_arg = ArgumentType::PALETTE,
 			"-c" | "-palcopy" => palette_transfer = true,
-			"-r" | "-reindex" => reindex = true,
-			"-l" | "-list" => verbose = true,
-			"-u" | "-uncompressed" => uncompressed = true,
-			"-w" | "-overwrite" => overwrite = true,
-			"-rgb" | "-as-rgb" => as_rgb = true,
 			"-q" | "-opaque" => opaque = true,
 			
-			// 1bpp and 2bpp output support not necessary
-			// "-1" | "-force-1bpp" => {
-				// forced_bit_depth = true;
-				// bit_depth = 1;
-			// },
-			
-			// "-2" | "-force-2bpp" => {
-				// forced_bit_depth = true;
-				// bit_depth = 2;
-			// },
+			// Image procesing parameters
+			"-rgb" | "-as-rgb" => as_rgb = true,
 			
 			"-4" | "-force-4bpp" => {
 				forced_bit_depth = true;
@@ -155,6 +165,23 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 				forced_bit_depth = true;
 				bit_depth = 8;
 			},
+			
+			"-r" | "-reindex" => reindex = true,
+			
+			// BIN sprite parameters
+			"-hs" | "-hash-set" => {
+				hash_mode = HashMode::PRESET;
+				next_arg = ArgumentType::HASH;
+			},
+			
+			"-hi" | "-hash-inc" => {
+				hash_mode = HashMode::INCREMENTAL;
+				next_arg = ArgumentType::HASH;
+			},
+			
+			"-u" | "-uncompressed" => uncompressed = true,
+			
+			// Invalid parameters
 			_ => println!("Unexpected parameter '{}', ignoring.", &this_argument),
 		}
 	}
@@ -289,6 +316,8 @@ pub fn validate(arg_count: usize, args: Vec<String>) -> Option<Parameters> {
 		bit_depth: bit_depth,
 		as_rgb: as_rgb,
 		opaque: opaque,
+		hash_mode: hash_mode,
+		hash_value: hash_value,
 		uncompressed: uncompressed,
 		reindex: reindex,
 		verbose: verbose,

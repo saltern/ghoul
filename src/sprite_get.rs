@@ -271,9 +271,13 @@ pub fn get_bmp(source_file: &PathBuf) -> SpriteData {
 		},
 	}
 	
+	let width: usize = dib_header.width as usize;
+	let height: usize = dib_header.height.abs() as usize;
+	let bit_depth: usize = dib_header.bitcount as usize;
+	
 	// Cheers Wikipedia
-	let row_size: usize = (((dib_header.bitcount as usize) * (dib_header.width as usize) + 31) / 32) * 4;
-	let pixel_array_len: usize = row_size * dib_header.height.abs() as usize;
+	let row_size: usize = ((bit_depth * width + 31) / 32) * 4;
+	let pixel_array_len: usize = row_size * height;
 	
 	let start: usize = file_header.bfOffBits as usize;
 	
@@ -287,29 +291,34 @@ pub fn get_bmp(source_file: &PathBuf) -> SpriteData {
 		4 => pixel_array = sprite_transform::bpp_from_4(pixel_array, false),
 		8 => (),
 		_ => {
-			println!("Warning: Skipping BMP as its color depth is not supported ({})", dib_header.bitcount);
+			println!("Warning: Skipping BMP as its color depth is not supported ({})", bit_depth);
 			println!("\tSkipped: {}", &source_file.display());
 			return SpriteData::default();
 		},
 	}
 	
+	// Get full size of row, round up width trim fat
+	let factor: usize = 8 / bit_depth;
+	let rounded_width: usize = width + width % factor;
+	
 	// Trim padding
+	let expanded_width: usize = pixel_array.len() / height;
 	let mut pixel_vector: Vec<u8> = Vec::new();
 	
-	for y in (0..dib_header.height as usize).rev() {
-		for x in 0..dib_header.width as usize {
-			pixel_vector.push(pixel_array[y * row_size + x]);
+	for y in (0..height).rev() {
+		for x in 0..rounded_width {
+			pixel_vector.push(pixel_array[y * expanded_width + x]);
 		}
 	}
 	
-	// Invalid BMP	
-	if std::cmp::max(dib_header.width, dib_header.height.abs() as u32) > u16::MAX as u32 {
+	// Invalid BMP
+	if std::cmp::max(width, height) > u16::MAX as usize {
 		println!("sprite_get::get_bmp() error: image dimensions exceed sprite maximum of 65535px per side");
 		println!("\tSkipped: {}", &source_file.display());
 		return SpriteData::default();
 	}
 	
-	if pixel_vector.len() != (dib_header.width * dib_header.height.abs() as u32) as usize {
+	if pixel_vector.len() != rounded_width * height {
 		println!("sprite_get::get_bmp() error: bad BMP: pixel count mismatches image dimensions, result may differ");
 		println!("\tFile: {}", &source_file.display());
 		pixel_vector.resize((dib_header.width * dib_header.height.abs() as u32) as usize, 0u8);
@@ -341,11 +350,11 @@ pub fn get_bmp(source_file: &PathBuf) -> SpriteData {
 	let color_count: usize;
 	match dib_header.ClrUsed {
 		Some(value) => match value {
-			0 => color_count = 2u16.pow(dib_header.bitcount as u32) as usize,
+			0 => color_count = 2u16.pow(bit_depth as u32) as usize,
 			_ => color_count = value as usize,
 		},
 		
-		None => color_count = 2u16.pow(dib_header.bitcount as u32) as usize,
+		None => color_count = 2u16.pow(bit_depth as u32) as usize,
 	}
 	
 	// Create and populate palette
@@ -366,9 +375,9 @@ pub fn get_bmp(source_file: &PathBuf) -> SpriteData {
 	}
 	
 	return SpriteData {
-		width: dib_header.width as u16,
-		height: dib_header.height as u16,
-		bit_depth: dib_header.bitcount as u16,
+		width: width as u16,
+		height: height as u16,
+		bit_depth: bit_depth as u16,
 		pixels: pixel_vector,
 		palette: palette,
 	}
