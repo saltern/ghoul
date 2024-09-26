@@ -297,16 +297,12 @@ pub fn get_bmp(source_file: &PathBuf) -> SpriteData {
 		},
 	}
 	
-	// Get full size of row, round up width trim fat
-	let factor: usize = 8 / bit_depth;
-	let rounded_width: usize = width + width % factor;
-	
 	// Trim padding
 	let expanded_width: usize = pixel_array.len() / height;
 	let mut pixel_vector: Vec<u8> = Vec::new();
 	
 	for y in (0..height).rev() {
-		for x in 0..rounded_width {
+		for x in 0..width {
 			pixel_vector.push(pixel_array[y * expanded_width + x]);
 		}
 	}
@@ -318,10 +314,10 @@ pub fn get_bmp(source_file: &PathBuf) -> SpriteData {
 		return SpriteData::default();
 	}
 	
-	if pixel_vector.len() != rounded_width * height {
+	if pixel_vector.len() != width * height {
 		println!("sprite_get::get_bmp() error: bad BMP: pixel count mismatches image dimensions, result may differ");
 		println!("\tFile: {}", &source_file.display());
-		pixel_vector.resize((dib_header.width * dib_header.height.abs() as u32) as usize, 0u8);
+		pixel_vector.resize(width * height, 0u8);
 	}
 	
 	// Palette read

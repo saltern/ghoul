@@ -126,6 +126,9 @@ fn process_file(parameters: Parameters) {
 		return;
 	}
 	
+	// Trim padding
+	data.pixels = sprite_transform::trim_padding(data.pixels, data.width as usize, data.height as usize);
+	
 	// Reindex
 	if parameters.reindex {
 		for index in 0..data.pixels.len() {

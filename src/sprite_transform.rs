@@ -181,3 +181,37 @@ pub fn bpp_from_4(input_pixels: Vec<u8>, flip: bool) -> Vec<u8> {
 	
 	return output_pixels;
 }
+
+
+pub fn align_to_4(input_pixels: Vec<u8>, height: usize) -> Vec<u8> {
+	let mut output_pixels: Vec<u8> = Vec::new();
+	
+	let width: usize = input_pixels.len() / height;
+	let padding: usize = width % 2;
+	
+	for y in 0..height {
+		for x in 0..width {
+			output_pixels.push(input_pixels[y * width + x]);
+		}
+		
+		for _x in 0..padding {
+			output_pixels.push(0x00);
+		}
+	}
+	
+	return output_pixels;
+}
+
+
+pub fn trim_padding(input_pixels: Vec<u8>, width: usize, height: usize) -> Vec<u8> {
+	let mut output_pixels: Vec<u8> = Vec::new();
+	let row_width: usize = input_pixels.len() / height;
+	
+	for y in 0..height {
+		for x in 0..width {
+			output_pixels.push(input_pixels[y * row_width + x]);
+		}
+	}
+	
+	return output_pixels;
+}

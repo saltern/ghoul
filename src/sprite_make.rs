@@ -126,7 +126,7 @@ pub fn make_png(parameters: Parameters, data: SpriteData) {
 	let mut encoder = png::Encoder::new(buffer, data.width as u32, data.height as u32);
 	
 	// 4 bpp handling
-	let working_pixels: Vec<u8>;
+	let mut working_pixels: Vec<u8>;
 	
 	match data.bit_depth {
 		// 1 and 2 bpp not currently in use
@@ -141,7 +141,8 @@ pub fn make_png(parameters: Parameters, data: SpriteData) {
 		// },
 		
 		4 => {
-			working_pixels = sprite_transform::bpp_to_4(data.pixels, false);
+			working_pixels = sprite_transform::align_to_4(data.pixels, data.height as usize);
+			working_pixels = sprite_transform::bpp_to_4(working_pixels, false);
 			encoder.set_depth(png::BitDepth::Four);
 		},
 		
@@ -169,7 +170,6 @@ pub fn make_png(parameters: Parameters, data: SpriteData) {
 			rgb_palette.push(data.palette[4 * color + 2]);
 			transparency[color] = data.palette[4 * color + 3];
 		}
-		// encoder.set_color(png::ColorType::Indexed);
 	}
 	
 	// Grayscale pal
@@ -389,13 +389,16 @@ pub fn make_bmp(parameters: Parameters, data: SpriteData) {
 	let _ = buffer.write_all(&header);
 	let _ = buffer.write_all(&color_table);
 	
-	let byte_vector: Vec<u8>;
+	let mut byte_vector: Vec<u8>;
 	
 	match data.bit_depth {
 		// 1 and 2 bpp not currently in use
 		// 1 => byte_vector = sprite_transform::bpp_to_1(data.pixels, false),
 		// 2 => byte_vector = sprite_transform::bpp_to_2(data.pixels, false),
-		4 => byte_vector = sprite_transform::bpp_to_4(data.pixels, false),
+		4 => {
+			byte_vector = sprite_transform::align_to_4(data.pixels, data.height as usize);
+			byte_vector = sprite_transform::bpp_to_4(byte_vector, false);
+		},
 		8 => byte_vector = data.pixels,
 		// Shouldn't happen
 		_ => panic!("sprite_make::make_bmp() error: Invalid bit depth"),
