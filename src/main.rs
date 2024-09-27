@@ -271,8 +271,9 @@ fn type_matches(extension: Option<&OsStr>, format: SpriteFormat) -> bool {
 }
 
 
-fn process_directory_thread(pathbuf_vec: Vec<PathBuf>, mut parameters: Parameters, start_at: u16) {
+fn process_directory_thread(pathbuf_vec: Vec<PathBuf>, mut parameters: Parameters, start_at: u16) -> usize {
 	let mut file_number: u16 = parameters.hash_value + start_at;
+	let mut processed_count: usize = 0;
 	
 	for file in 0..pathbuf_vec.len() {
 		if type_matches(pathbuf_vec[file].extension(), parameters.source_format) {
@@ -283,9 +284,12 @@ fn process_directory_thread(pathbuf_vec: Vec<PathBuf>, mut parameters: Parameter
 			}
 			
 			process_file(parameters.clone());
+			processed_count += 1;
 			file_number += 2;
 		}
 	}
+	
+	return processed_count;
 }
 
 
@@ -306,13 +310,13 @@ fn process_directory(parameters: Parameters) {
 			Some(item) => {
 				if item_count % 2 == 0 {
 					pathbuf_vec1.push(item.unwrap().path());
-					item_count += 1;
 				}
 				
 				else {
 					pathbuf_vec2.push(item.unwrap().path());
-					item_count += 1;
 				}
+			
+				item_count += 1;
 			},
 			
 			None => break,
@@ -322,10 +326,10 @@ fn process_directory(parameters: Parameters) {
 	let params_t2: Parameters = parameters.clone();
 	
 	let handle = thread::spawn(move || process_directory_thread(pathbuf_vec2, params_t2, 1));
-	process_directory_thread(pathbuf_vec1, parameters, 0);
+	item_count = process_directory_thread(pathbuf_vec1, parameters, 0);
 	
 	// Wait for both threads to be done
-	handle.join().unwrap();
+	item_count += handle.join().unwrap();
 	
 	print!("Processed {} sprites", item_count);
 }
