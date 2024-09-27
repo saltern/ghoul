@@ -306,13 +306,13 @@ fn process_directory(parameters: Parameters) {
 			Some(item) => {
 				if item_count % 2 == 0 {
 					pathbuf_vec1.push(item.unwrap().path());
+					item_count += 1;
 				}
 				
 				else {
 					pathbuf_vec2.push(item.unwrap().path());
+					item_count += 1;
 				}
-			
-				item_count += 1;
 			},
 			
 			None => break,
