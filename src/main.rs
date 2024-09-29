@@ -129,16 +129,16 @@ fn process_file(parameters: Parameters) {
 	// Trim padding
 	data.pixels = sprite_transform::trim_padding(data.pixels, data.width as usize, data.height as usize);
 	
+	// -as-rgb
+	if !data.palette.is_empty() && parameters.as_rgb {
+		data.pixels = sprite_transform::indexed_as_rgb(data.pixels, &data.palette);
+	}
+	
 	// Reindex
 	if parameters.reindex {
 		for index in 0..data.pixels.len() {
 			data.pixels[index] = sprite_transform::transform_index(data.pixels[index]);
 		}
-	}
-	
-	// -as-rgb
-	if !data.palette.is_empty() && parameters.as_rgb {
-		data.pixels = sprite_transform::indexed_as_rgb(data.pixels, &data.palette);
 	}
 	
 	// -force-4bpp / -force-8bpp
